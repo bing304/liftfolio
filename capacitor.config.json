@@ -1,0 +1,24 @@
+{
+  "appId": "app.liftfolio.ios",
+  "appName": "Liftfolio",
+  "webDir": "www",
+  "backgroundColor": "#000000",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#000000"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "launchShowDuration": 1500,
+      "backgroundColor": "#000000",
+      "showSpinner": false
+    },
+    "LocalNotifications": {
+      "presentationOptions": [
+        "banner",
+        "sound"
+      ]
+    }
+  }
+}

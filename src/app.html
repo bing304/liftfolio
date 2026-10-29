@@ -1,0 +1,1568 @@
+<title>Liftfolio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: four tabs (Statistik, Übungen, Profil, Optionen); bottom bar on phones, top bar on desktop.
+   Look: clean fintech. One neutral canvas, big bold numbers, sentence-case labels.
+   One signal colour (--c, user-chosen) for lines, highlights and controls; green only for gains.
+   No outside benchmarks: every number compares you with your own past. */
+:root{
+  --bg:#FFFFFF; --surface:#F4F5F6; --ink:#0E1011; --ink-2:#4A4F55; --muted:#7A8087; --line:#E5E7EA; --grid:#EEF0F2;
+  --c:var(--c-l,#138545); --on:var(--on-l,#ffffff); --glow:.18; --gsh:none;
+  --good:#0F8A43; --bad:#C62E3B; --tip-bg:#0E1011; --tip-fg:#FFFFFF;
+  --glass:color-mix(in srgb,var(--surface) 82%,transparent);
+  --f:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#000000; --surface:#111314; --ink:#F2F4F5; --ink-2:#B9BEC3; --muted:#868C92; --line:#22262A; --grid:#16191B;
+    --c:var(--c-d,#3ee07f); --on:var(--on-d,#000000); --glow:.6; --gsh:0 0 14px color-mix(in srgb,var(--c) 40%,transparent);
+    --good:#3DDC84; --bad:#FF6B6B; --tip-bg:#F2F4F5; --tip-fg:#000000; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#000000; --surface:#111314; --ink:#F2F4F5; --ink-2:#B9BEC3; --muted:#868C92; --line:#22262A; --grid:#16191B;
+  --c:var(--c-d,#3ee07f); --on:var(--on-d,#000000); --glow:.6; --gsh:0 0 14px color-mix(in srgb,var(--c) 40%,transparent);
+  --good:#3DDC84; --bad:#FF6B6B; --tip-bg:#F2F4F5; --tip-fg:#000000; color-scheme:dark;
+}
+/* explicit choice in Optionen wins over system and host theme */
+html:root.m-light{
+  --bg:#FFFFFF; --surface:#F4F5F6; --ink:#0E1011; --ink-2:#4A4F55; --muted:#7A8087; --line:#E5E7EA; --grid:#EEF0F2;
+  --c:var(--c-l,#138545); --on:var(--on-l,#ffffff); --glow:.18; --gsh:none;
+  --good:#0F8A43; --bad:#C62E3B; --tip-bg:#0E1011; --tip-fg:#FFFFFF; color-scheme:light;
+}
+html:root.m-dark{
+  --bg:#000000; --surface:#111314; --ink:#F2F4F5; --ink-2:#B9BEC3; --muted:#868C92; --line:#22262A; --grid:#16191B;
+  --c:var(--c-d,#3ee07f); --on:var(--on-d,#000000); --glow:.6; --gsh:0 0 14px color-mix(in srgb,var(--c) 40%,transparent);
+  --good:#3DDC84; --bad:#FF6B6B; --tip-bg:#F2F4F5; --tip-fg:#000000; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:500 15px/1.5 var(--f);-webkit-font-smoothing:antialiased;min-height:100%}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+a{color:inherit}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--c);outline-offset:2px}
+.gut{max-width:1040px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.muted{color:var(--muted)}
+.lbl{font:600 13px/1.3 var(--f);color:var(--muted)}
+
+/* header + tabs */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--bg);background:color-mix(in srgb,var(--bg) 80%,transparent);-webkit-backdrop-filter:blur(16px) saturate(150%);backdrop-filter:blur(16px) saturate(150%);border-bottom:1px solid var(--line)}
+.top .gut{display:flex;align-items:center;gap:16px;height:56px}
+.brand{font:800 18px/1 var(--f);letter-spacing:-.02em;text-decoration:none;display:flex;align-items:center;gap:9px}
+.tabs{display:flex;gap:4px;margin-left:auto}
+.tabs a{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;text-decoration:none;color:var(--muted);font-weight:700;font-size:14px}
+.tabs svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.tabs a[aria-current="page"]{color:var(--ink);background:var(--surface)}
+.tabs a[aria-current="page"] svg{color:var(--c)}
+.sync{display:flex;align-items:center;gap:6px;font:600 12px var(--f);color:var(--muted);white-space:nowrap}
+.sync i{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.sync.ok i{background:var(--good)} .sync.err i{background:var(--bad)} .sync.busy i{background:var(--c)}
+main.gut{display:grid;gap:36px;padding-block:28px 64px}
+@media (max-width:760px){
+  .top{-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--bg)} /* a filtered ancestor would trap the fixed tab bar */
+  .top .gut{height:50px}
+  .tabs{position:fixed;left:0;right:0;bottom:0;margin:0;z-index:9;background:var(--bg);background:color-mix(in srgb,var(--bg) 82%,transparent);-webkit-backdrop-filter:blur(16px) saturate(150%);backdrop-filter:blur(16px) saturate(150%);border-top:1px solid var(--line);gap:0;
+        padding:4px max(8px,env(safe-area-inset-right,0px)) calc(4px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+  .tabs a{flex:1;flex-direction:column;justify-content:center;gap:4px;height:52px;padding:0;background:none!important}
+  .tabs a span{display:none}
+  .tabs svg{width:25px;height:25px}
+  .tabs a::after{content:"";width:4px;height:4px;border-radius:2px;background:transparent}
+  .tabs a[aria-current="page"]::after{background:var(--c)}
+  .sync{margin-left:auto}.sync span{display:none}
+  main.gut{padding-bottom:calc(100px + env(safe-area-inset-bottom,0px));gap:30px}
+}
+
+/* type */
+h1{font:800 clamp(28px,6vw,36px)/1.1 var(--f);letter-spacing:-.025em;margin:0;text-wrap:balance;min-width:0;overflow-wrap:anywhere}
+h2{font:800 19px/1.25 var(--f);letter-spacing:-.015em;margin:0}
+section{display:grid;gap:14px;min-width:0}
+.sh{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+
+/* controls */
+.btn{height:42px;padding:0 18px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-weight:700;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;text-decoration:none}
+.btn:hover{border-color:var(--muted)}
+.btn.pri{background:var(--c);color:var(--on);border-color:var(--c);box-shadow:var(--gsh)}
+.btn.warn{color:var(--bad)}
+.btn.sm{height:34px;padding:0 13px;font-size:13px;border-radius:10px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{height:32px;padding:0 13px;border-radius:16px;border:0;background:var(--surface);font:700 13px var(--f);cursor:pointer;color:var(--ink-2)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.seg{display:inline-flex;border-radius:12px;padding:3px;gap:3px;background:var(--surface)}
+.seg button{border:0;background:transparent;height:36px;padding:0 14px;border-radius:9px;font-weight:700;font-size:14px;cursor:pointer;color:var(--ink-2);flex:1}
+.seg button[aria-pressed="true"]{background:var(--bg);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 1px var(--line)}
+.field{display:grid;gap:5px;min-width:0}
+.field>span{font:600 13px var(--f);color:var(--muted)}
+input[type=text],input[type=date],input[type=search],select,textarea{height:48px;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:0 14px;font:600 16px var(--f);font-variant-numeric:tabular-nums;width:100%;min-width:0}
+textarea{height:auto;min-height:90px;padding:10px 12px;font-size:12px;font-weight:500;resize:vertical}
+input:focus,select:focus,textarea:focus{border-color:var(--c);outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 18%,transparent)}
+.step{display:flex;gap:4px}
+.step button{width:48px;flex:none;border:1px solid var(--line);background:var(--surface);border-radius:12px;font:600 20px var(--f);cursor:pointer;color:var(--ink-2)}
+
+/* brand glyph */
+.logo{width:26px;height:26px;border-radius:6.5px;background:var(--c);overflow:hidden;flex:none;display:block;box-shadow:var(--gsh)}
+.logo svg{display:block;width:100%;height:100%}
+.logo .b{fill:var(--on)}.logo .k{fill:var(--c)}.logo .s{stroke:var(--on)}
+/* Einführung beim ersten Start – immer dunkel */
+.bear .b{fill:var(--on)}.bear .k{fill:var(--c)}.bear .r{stroke:var(--c)}.bear .s{stroke:var(--on)}
+.intro{--bg:#000000;--surface:#111314;--ink:#F2F4F5;--ink-2:#B9BEC3;--muted:#868C92;--line:#22262A;--grid:#16191B;--c:var(--c-d,#3ee07f);--on:var(--on-d,#000000);--glow:.6;--gsh:0 0 14px color-mix(in srgb,var(--c) 40%,transparent);color-scheme:dark;color:var(--ink);
+  position:fixed;inset:0;z-index:15;background:var(--bg);overflow:auto;display:flex;padding:max(20px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(24px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.intro.bye{animation:outFade .22s ease-in both}
+.intro-in{margin:auto;width:100%;max-width:420px;display:grid;gap:22px}
+.intro-top{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:40px;width:100%}
+.intro-top .seg button{height:30px;padding:0 10px;font-size:13px}
+.intro-skip{border:0;background:none;color:var(--muted);font:700 14px var(--f);cursor:pointer;padding:8px 0;transition:opacity .15s}
+.intro-skip:active{opacity:.5}
+.intro h1{font-size:clamp(40px,11vw,52px)}
+.intro .lead{font:600 17px/1.55 var(--f);color:var(--ink-2);margin:0}
+.intro .btn{height:52px;font-size:16px;border-radius:14px}
+.intro-act{display:grid;gap:10px;width:100%}
+.in2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.hfi{display:flex;align-items:center;gap:6px}
+.hfi input{flex:1;min-width:0;text-align:center;padding:0 6px}
+.hfi span{font:700 13px var(--f);color:var(--muted)}
+.s0{justify-items:center;text-align:center}
+.s0 .lead{max-width:340px}
+.hello{display:grid;justify-items:center;gap:16px;margin-top:6px}
+.say{position:relative;background:var(--surface);font:800 30px/1 var(--f);letter-spacing:-.02em;padding:14px 22px 15px;border-radius:20px;transform-origin:50% 100%}
+.say::after{content:"";position:absolute;left:50%;bottom:-7px;width:16px;height:16px;background:inherit;border-radius:3px;transform:translateX(-50%) rotate(45deg)}
+.hero-logo{width:148px;height:148px;display:block;filter:drop-shadow(0 10px 32px color-mix(in srgb,var(--c) 30%,transparent))}
+.dots{display:flex;gap:6px;align-items:center}
+.dots i{width:7px;height:7px;border-radius:4px;background:var(--line);transition:width .35s cubic-bezier(.2,.8,.2,1),background-color .35s}
+.dots i.on{width:22px;background:var(--c)}
+.coach{display:flex;gap:12px;align-items:flex-end}
+.logo.av{width:58px;height:58px;border-radius:16px}
+.bubble{position:relative;flex:1;min-width:0;background:var(--surface);border-radius:22px 22px 22px 6px;padding:18px 20px;font:600 17px/1.5 var(--f);transform-origin:0 100%}
+.bubble b{font-weight:800}
+.bubble span,.say span{transition:opacity .08s}
+.intro .tw{opacity:0}
+.ti{display:inline-flex;align-items:center;gap:5px;padding:1px 9px 1px 7px;border-radius:9px;background:var(--bg);color:var(--c);font-weight:800;white-space:nowrap;vertical-align:baseline}
+.ti svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* Übergänge */
+.intro-in.enter{animation:inSlide .34s cubic-bezier(.2,.8,.2,1) both}
+.intro-in.leave{animation:outSlide .17s ease-in both}
+.intro-in.leave-tip .bubble,.intro-in.leave-tip .intro-act{animation:outFade .16s ease-in both}
+.intro-in.enter .bubble,.intro-in.enter-tip .bubble{animation:bubblePop .4s .08s cubic-bezier(.2,1.25,.4,1) both}
+.intro-in.enter-tip .intro-act{animation:inFade .3s .05s ease-out both}
+.intro-in.enter-first{animation:inFade .3s ease-out both}
+.s0.enter-first .hero-logo,.s0.enter .hero-logo{animation:logoIn .55s cubic-bezier(.2,1,.3,1) both}
+.s0.enter-first .say,.s0.enter .say{animation:sayPop .5s .38s cubic-bezier(.2,1.4,.4,1) both}
+.s0.enter-first .lead,.s0.enter .lead{animation:inFade .45s .6s ease-out both}
+.s0.enter-first .intro-act,.s0.enter .intro-act{animation:inFade .45s .72s ease-out both}
+@keyframes inFade{from{opacity:0;transform:translateY(10px)}}
+@keyframes inSlide{from{opacity:0;transform:translateX(24px)}}
+@keyframes outSlide{to{opacity:0;transform:translateX(-18px)}}
+@keyframes outFade{to{opacity:0}}
+@keyframes bubblePop{from{opacity:0;transform:scale(.92) translateY(6px)}}
+@keyframes sayPop{from{opacity:0;transform:scale(.6) translateY(14px)}}
+@keyframes logoIn{from{opacity:0;transform:scale(.86)}}
+/* Knöpfe: sanft und mit leichtem Nachgeben beim Drücken */
+.btn{transition:transform .14s cubic-bezier(.2,.8,.2,1),background-color .2s,border-color .2s,box-shadow .2s,color .2s}
+.btn:active{transform:scale(.97)}
+.seg button{transition:background-color .2s,color .2s,box-shadow .2s,transform .14s}
+.seg button:active,.chip:active,.swatch:active,.opt:active{transform:scale(.97)}
+.chip,.swatch,.opt{transition:background-color .2s,border-color .2s,color .2s,transform .14s}
+
+/* gain pills */
+.dp{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font:800 13px/1.3 var(--f);font-variant-numeric:tabular-nums;white-space:nowrap;background:var(--surface);color:var(--ink-2)}
+.dp.up{background:color-mix(in srgb,var(--good) 14%,transparent);color:var(--good)}
+.dp.xl{font-size:15px;padding:5px 11px}
+.up{color:var(--good)}
+
+/* goal bar */
+.goal{position:relative;height:8px;border-radius:4px;background:color-mix(in srgb,var(--c) 16%,transparent)}
+.goal i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--c);box-shadow:var(--gsh)}
+.goalends{display:flex;justify-content:space-between;font:700 12px var(--f);color:var(--muted);font-variant-numeric:tabular-nums;margin-top:6px}
+
+/* stats tab */
+.demo{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 6px 6px 16px;border-radius:14px;background:var(--surface);font-size:13.5px;font-weight:600;color:var(--ink-2)}
+.hi{font:800 clamp(30px,7vw,40px)/1.1 var(--f);letter-spacing:-.03em;margin:0}
+.since{font:600 17px/1.55 var(--f);color:var(--ink-2);margin:0;max-width:60ch}
+.since b{color:var(--ink);font-weight:800}
+.since b.c{color:var(--c)}
+.hero{display:grid;gap:16px}
+.bigrow{display:flex;align-items:center;gap:12px 16px;flex-wrap:wrap}
+.heronum{font:800 clamp(48px,11vw,72px)/1 var(--f);letter-spacing:-.04em;color:var(--c);font-variant-numeric:tabular-nums;text-shadow:0 0 28px color-mix(in srgb,var(--c) calc(var(--glow) * 70%),transparent)}
+.nextline{font:600 14px var(--f);color:var(--ink-2);margin:0}
+.nextline b{color:var(--ink);font-weight:800}
+.kpis3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.kpi{background:var(--surface);border-radius:16px;padding:14px 16px;display:grid;gap:4px;align-content:start;min-width:0;border:1px solid transparent;text-align:left;font:inherit;color:inherit;cursor:pointer}
+button.kpi:hover{border-color:var(--line)}
+.kpi .kv{font:800 clamp(24px,5vw,32px)/1.05 var(--f);letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.kpi .kv small{font-size:.5em;font-weight:700;color:var(--muted);margin-left:3px;letter-spacing:0}
+.kpi .ks{font:600 12.5px var(--f);color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kpi.add{place-items:center;align-content:center;min-height:106px;background:transparent;border:1.5px dashed var(--line);color:var(--muted);font:300 42px/1 var(--f)}
+.kpi.add:hover,.mc.addc:hover{border-color:var(--c);color:var(--c)}
+@media (max-width:600px){.kpis3{grid-template-columns:1fr 1fr}.kpis3 .kpi:first-child{grid-column:1/-1}}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.mc{display:grid;gap:6px;padding:14px 16px 12px;border-radius:18px;background:var(--surface);text-decoration:none;min-width:0;border:1px solid transparent}
+a.mc:hover{border-color:var(--line)}
+.mc.addc{place-items:center;align-content:center;min-height:168px;background:transparent;border:1.5px dashed var(--line);color:var(--muted);font:300 46px/1 var(--f);cursor:pointer}
+.mc.edit{position:relative;touch-action:none;cursor:grab;border:1.5px dashed color-mix(in srgb,var(--c) 50%,var(--line));user-select:none;-webkit-user-select:none}
+.mc.edit .chart{pointer-events:none}
+.mc.dragging{opacity:.9;box-shadow:0 14px 34px rgba(0,0,0,.28);transform:scale(1.02);z-index:2;cursor:grabbing}
+.mc .rm{position:absolute;top:-9px;right:-9px;width:28px;height:28px;border-radius:50%;border:2px solid var(--bg);background:var(--ink);color:var(--bg);font:800 11px var(--f);cursor:pointer;z-index:3}
+.mh{display:flex;justify-content:space-between;align-items:center;gap:8px;min-width:0}
+.mn{font-weight:700;font-size:14.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mv{font:800 30px/1 var(--f);letter-spacing:-.03em;white-space:nowrap;font-variant-numeric:tabular-nums}
+.mv small{font-size:13px;font-weight:700;color:var(--muted);margin-left:3px;letter-spacing:0}
+.ms{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:24px}
+.ms .t{font:600 12.5px var(--f);color:var(--muted)}
+.hint{font:600 12.5px var(--f);color:var(--muted);align-self:center}
+
+/* sheet */
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:30}
+.sheet{position:fixed;z-index:31;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100vw - 32px));max-height:min(80vh,640px);overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:22px;padding:18px;display:grid;gap:12px;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+@media (max-width:760px){.sheet{left:0;right:0;bottom:0;top:auto;transform:none;width:auto;max-height:80vh;border-radius:22px 22px 0 0;padding:18px max(16px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}}
+.sheet-h{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.sheet .x{width:36px;height:36px;flex:none;border-radius:10px;border:0;background:var(--surface);cursor:pointer;font-size:14px;color:var(--ink-2)}
+.opts{display:grid;gap:6px}
+.opt{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:54px;padding:10px 14px;border-radius:14px;border:1px solid transparent;background:var(--surface);cursor:pointer;text-align:left;font:700 15px var(--f)}
+.opt .v{font-weight:800;font-variant-numeric:tabular-nums;color:var(--ink-2);white-space:nowrap}
+.opt[aria-pressed="true"]{border-color:var(--c)}
+.opt:disabled{opacity:.4;cursor:default}
+
+/* charts */
+.chart{position:relative;min-width:0;touch-action:pan-y}
+.chart svg{display:block;width:100%;overflow:visible}
+.chart text{font:600 11px var(--f);fill:var(--muted);font-variant-numeric:tabular-nums}
+.chart .vl{fill:var(--ink);font-weight:800;font-size:12.5px;paint-order:stroke;stroke:var(--bg);stroke-width:3.5px;stroke-linejoin:round}
+.chart .bt{font-weight:800;font-size:10.5px}
+.mini{height:84px}
+.tip{position:absolute;pointer-events:none;background:var(--tip-bg);color:var(--tip-fg);font:600 12.5px/1.45 var(--f);font-variant-numeric:tabular-nums;padding:7px 10px;border-radius:10px;white-space:nowrap;z-index:3;opacity:0;transition:opacity .08s}
+.tip b{font-weight:600;opacity:.65;display:block;font-size:11.5px}
+.nodata{height:110px;display:grid;place-items:center;color:var(--muted);font-size:13.5px;font-weight:600;background:var(--surface);border-radius:16px}
+.nodata.mini{height:84px;background:none}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;font-weight:600;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:9px;height:9px;border-radius:50%;background:var(--c);display:inline-block}
+.sw.hollow{background:transparent;border:1.75px solid var(--muted)}
+
+/* exercises tab */
+.res{display:grid}
+.ri{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px;padding:8px 0;border-bottom:1px solid var(--line);text-decoration:none}
+.ri .n{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ri .r{display:flex;align-items:center;gap:10px;font:800 15px var(--f);font-variant-numeric:tabular-nums;flex:none}
+.ri .plus{color:var(--muted);font:500 22px var(--f)}
+.newex{background:var(--surface);border-radius:16px;padding:12px;display:flex;gap:10px;align-items:end;flex-wrap:wrap}
+.newex .field{width:150px}
+.newex .field.grow{flex:1 1 220px;width:auto}
+.newex input,.newex select{background:var(--bg)}
+.back{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;margin-left:-10px;border-radius:12px;text-decoration:none;font-size:22px;color:var(--ink-2)}
+.back:hover{background:var(--surface)}
+.exh{display:flex;align-items:center;gap:6px;min-width:0}
+.exhero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,380px);gap:32px;align-items:start}
+@media (max-width:820px){.exhero{grid-template-columns:1fr;gap:22px}}
+.exstat{display:grid;gap:12px}
+.e1{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.e1 .big{font:800 clamp(56px,13vw,84px)/.95 var(--f);letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.e1 .u{font:800 22px var(--f);color:var(--muted);letter-spacing:-.01em}
+.card{background:var(--surface);border-radius:20px;padding:16px;display:grid;gap:12px}
+.card .seg{display:flex;background:var(--bg)}
+.card .seg button[aria-pressed="true"]{background:var(--surface)}
+.card input[type=text],.card input[type=date],.card .step button{background:var(--bg)}
+.fgrid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,.8fr) minmax(0,.8fr);gap:8px}
+.fgrid .full{grid-column:1/-1}
+.prev{font:600 13px var(--f);color:var(--muted);min-height:20px}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.st{background:var(--surface);border-radius:16px;padding:12px 14px;min-width:0;display:grid;gap:4px}
+.st .v{font:800 20px/1.1 var(--f);letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.log{display:grid}
+.lg{display:grid;grid-template-columns:76px minmax(0,1fr) auto 40px;gap:10px;align-items:center;min-height:48px;border-bottom:1px solid var(--line);font:700 14.5px var(--f);font-variant-numeric:tabular-nums}
+.lg .dt{font-size:12.5px;font-weight:600;color:var(--muted)}
+.lg .e{font-size:12.5px;font-weight:600;color:var(--muted)}
+.lg .x{border:0;background:transparent;color:var(--muted);cursor:pointer;height:32px;border-radius:9px;font:700 12px var(--f)}
+.lg .x:hover{color:var(--bad)}
+.lg .x.c{color:var(--bad);border:1px solid var(--bad);padding:0 6px}
+.lg.c{grid-template-columns:76px minmax(0,1fr) auto auto}
+
+/* profile + options */
+.pgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.pgrid .span2{grid-column:1/-1}
+.prow{display:flex;gap:8px;align-items:end}
+.bwf{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) auto;gap:8px;align-items:end;max-width:460px}
+.prow .field{width:150px}
+.seg.wide{display:flex;max-width:440px}
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(116px,1fr));gap:8px}
+.swatch{display:flex;align-items:center;gap:10px;height:48px;padding:0 14px;border-radius:14px;border:1px solid transparent;background:var(--surface);cursor:pointer;font-weight:700;font-size:14px;color:var(--ink-2);text-align:left}
+.swatch i{width:16px;height:16px;border-radius:50%;flex:none}
+.swatch[aria-pressed="true"]{color:var(--ink);border-color:var(--c);box-shadow:inset 0 0 0 1px var(--c)}
+.foot{font-size:12.5px;font-weight:600;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:14px;font-weight:800;font-size:14.5px;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;z-index:20;max-width:calc(100vw - 32px)}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+@media (max-width:760px){.toast{bottom:calc(78px + env(safe-area-inset-bottom,0px))}}
+@media (max-width:520px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.priv summary{cursor:pointer;color:var(--muted);font-size:13px;font-weight:700;padding:6px 0}
+.priv p{margin-top:6px}
+/* native App: kein Markieren/Antippen-Blitz wie im Browser */
+html.native{-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+html.native body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html.native input,html.native textarea{-webkit-user-select:text;user-select:text}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <filter id="sb-glow" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="3.2"/></filter>
+  <filter id="sb-glow-s" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="2"/></filter>
+  <linearGradient id="sb-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--c);stop-opacity:.24"/><stop offset="1" style="stop-color:var(--c);stop-opacity:0"/></linearGradient>
+</defs></svg>
+<header class="top"><div class="gut">
+  <a class="brand" href="#stats"><span class="logo" aria-hidden="true"><svg viewBox="322 128 380 380"><path d="M512 330C590 330 658 346 714 374C776 404 814 440 814 488C814 540 776 586 734 616C700 640 684 664 688 700C690 732 612 752 512 752C412 752 334 732 336 700C340 664 324 640 290 616C248 586 210 540 210 488C210 440 248 404 310 374C366 346 434 330 512 330Z" class="b"/><path d="M408 252C386 212 396 172 426 166C454 160 474 178 484 214ZM616 252C638 212 628 172 598 166C570 160 550 178 540 214Z" class="b"/><path d="M512 196C562 196 606 208 620 240C632 266 648 290 648 316C650 330 660 340 664 350C648 352 636 360 626 368C596 390 552 400 512 400C472 400 428 390 398 368C388 360 376 352 360 350C364 340 374 330 376 316C376 290 392 266 404 240C418 208 462 196 512 196Z" class="b"/><path d="M512 280C526 280 536 288 546 300C566 320 584 338 582 358C580 380 548 388 512 388C476 388 444 380 442 358C440 338 458 320 478 300C488 288 498 280 512 280Z" class="k"/><path d="M512 300C536 300 556 302 554 314C552 328 530 340 512 342C494 340 472 328 470 314C468 302 488 300 512 300Z" class="b"/><path d="M512 340L512 356M490 372Q512 350 534 372" fill="none" class="s" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/><path d="M476 270C432 256 432 256 432 256C432 272 448 278 458 278C470 278 476 274 476 270ZM548 270C592 256 592 256 592 256C592 272 576 278 566 278C554 278 548 274 548 270Z" class="k"/></svg></span>Liftfolio</a>
+  <nav class="tabs" id="tabs" aria-label="Bereiche">
+    <a href="#stats" data-tab="stats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18"/><path d="M4 16l5-6 4 3 7-8"/></svg><span></span></a>
+    <a href="#uebungen" data-tab="uebungen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6v12M3.5 9v6M17.5 6v12M20.5 9v6M6.5 12h11"/></svg><span></span></a>
+    <a href="#profil" data-tab="profil"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c1.4-3.7 4.2-5.5 7.5-5.5s6.1 1.8 7.5 5.5"/></svg><span></span></a>
+    <a href="#optionen" data-tab="optionen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M19 7h1M4 17h3M13 17h7"/><circle cx="16" cy="7" r="2.5"/><circle cx="10" cy="17" r="2.5"/></svg><span></span></a>
+  </nav>
+  <div class="sync" id="sync"><i></i><span></span></div>
+</div></header>
+<main class="gut" id="app"></main>
+<div id="sheet"></div>
+<div id="intro"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+// Native App (Capacitor): Speicherung als Datei auf dem Gerät, Haptik, Erinnerung, Teilen-Menü
+const CAP = window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform() ? window.Capacitor : null;
+const PRIVACY_URL = 'https://bing304.github.io/liftfolio/privacy.html';
+const NPC = {};
+const NP = name => {
+  if (!CAP) return null; if (name in NPC) return NPC[name];
+  let p = null;
+  try { p = (CAP.Plugins && CAP.Plugins[name]) || (CAP.isPluginAvailable(name) ? CAP.registerPlugin(name) : null); } catch(e) {}
+  return (NPC[name] = p);
+};
+if (CAP) document.documentElement.classList.add('native');
+function haptic(kind){ const h = NP('Haptics'); if (!h) return; try { (kind === 'pr' ? h.notification({type:'SUCCESS'}) : h.impact({style:'LIGHT'})).catch(() => {}); } catch(e) {} }
+// Statistikfarben: d = auf dunklem Grund, l = auf hellem Grund
+const PALETTE = {
+  blau:{d:'#4da3ff', l:'#1f6fd1'}, tuerkis:{d:'#2fe3d3', l:'#0b8a7f'}, gruen:{d:'#3ee07f', l:'#138545'},
+  gelb:{d:'#ffd43b', l:'#8f6c00'}, orange:{d:'#ff9a3c', l:'#b9560a'}, rot:{d:'#ff4d5e', l:'#cc2a3a'},
+  pink:{d:'#ff63b8', l:'#bf2b7d'}, violett:{d:'#a993ff', l:'#6a4ddb'}, weiss:{d:'#eef1ef', l:'#1a1d1c'}
+};
+const GROUPS = ['chest','back','legs','shoulders','arms','core','full'];
+const KPI_IDS = ['total','top','prs','big3','sessions','volume','streak','bw'];
+// k:'bw' = Körpergewichtsübung (Gewicht = Zusatzgewicht), per = Gewicht pro Hantel
+const EX = [
+ {id:'bench',n:'Bankdrücken',e:'Bench Press',a:'Flachbank Langhantel',g:'chest'},
+ {id:'incline-bench',n:'Schrägbankdrücken',e:'Incline Bench Press',a:'Langhantel',g:'chest'},
+ {id:'db-bench',n:'Kurzhantel-Bankdrücken',e:'Dumbbell Bench Press',a:'KH Flachbank',g:'chest',per:1},
+ {id:'incline-db',n:'Schrägbank-Kurzhanteldrücken',e:'Incline Dumbbell Press',a:'KH schräg',g:'chest',per:1},
+ {id:'close-grip',n:'Enges Bankdrücken',e:'Close-Grip Bench Press',a:'Trizeps',g:'chest'},
+ {id:'dips',n:'Dips',e:'Dips',a:'Barrenstütz',g:'chest',k:'bw'},
+ {id:'pushups',n:'Liegestütze',e:'Push-ups',a:'Liegestütz push ups',g:'chest',k:'bw'},
+ {id:'chest-press',n:'Brustpresse',e:'Chest Press Machine',a:'Maschine',g:'chest'},
+ {id:'cable-fly',n:'Kabel-Fliegende',e:'Cable Fly',a:'Crossover Kabelzug',g:'chest'},
+ {id:'pec-deck',n:'Butterfly-Maschine',e:'Pec Deck',a:'Fly',g:'chest'},
+ {id:'deadlift',n:'Kreuzheben',e:'Deadlift',a:'konventionell',g:'back'},
+ {id:'row',n:'Langhantelrudern',e:'Bent-Over Row',a:'Barbell Row vorgebeugtes Rudern',g:'back'},
+ {id:'pullup',n:'Klimmzüge',e:'Pull-ups',a:'Klimmzug Obergriff pull ups',g:'back',k:'bw'},
+ {id:'chinup',n:'Klimmzüge Untergriff',e:'Chin-ups',a:'chin ups chinup',g:'back',k:'bw'},
+ {id:'lat-pulldown',n:'Latzug',e:'Lat Pulldown',a:'Latziehen Kabel',g:'back'},
+ {id:'cable-row',n:'Kabelrudern sitzend',e:'Seated Cable Row',a:'Rudern',g:'back'},
+ {id:'db-row',n:'Kurzhantelrudern einarmig',e:'One-Arm Dumbbell Row',a:'KH Rudern',g:'back',per:1},
+ {id:'tbar-row',n:'T-Bar-Rudern',e:'T-Bar Row',a:'',g:'back'},
+ {id:'face-pull',n:'Face Pulls',e:'Face Pulls',a:'Facepull Kabel',g:'back'},
+ {id:'back-ext',n:'Hyperextensions',e:'Back Extensions',a:'Rückenstrecker',g:'back',k:'bw'},
+ {id:'shrug',n:'Shrugs',e:'Shrugs',a:'Schulterheben Trapez',g:'back'},
+ {id:'sumo',n:'Sumo-Kreuzheben',e:'Sumo Deadlift',a:'',g:'back'},
+ {id:'squat',n:'Kniebeuge',e:'Squat',a:'Back Squat Langhantel',g:'legs'},
+ {id:'front-squat',n:'Frontkniebeuge',e:'Front Squat',a:'',g:'legs'},
+ {id:'leg-press',n:'Beinpresse',e:'Leg Press',a:'Sled 45',g:'legs'},
+ {id:'rdl',n:'Rumänisches Kreuzheben',e:'Romanian Deadlift',a:'RDL gestreckt',g:'legs'},
+ {id:'hip-thrust',n:'Hip Thrust',e:'Hip Thrust',a:'Hüftstoß Glute',g:'legs'},
+ {id:'hack-squat',n:'Hackenschmidt-Kniebeuge',e:'Hack Squat',a:'Maschine',g:'legs'},
+ {id:'bss',n:'Bulgarian Split Squat',e:'Bulgarian Split Squat',a:'Bulgarische Kniebeuge Split',g:'legs',per:1},
+ {id:'lunge',n:'Ausfallschritte',e:'Lunges',a:'Ausfallschritt',g:'legs'},
+ {id:'leg-ext',n:'Beinstrecker',e:'Leg Extension',a:'',g:'legs'},
+ {id:'leg-curl',n:'Beinbeuger',e:'Leg Curl',a:'liegend sitzend',g:'legs'},
+ {id:'calf',n:'Wadenheben',e:'Calf Raise',a:'Waden',g:'legs'},
+ {id:'ohp',n:'Schulterdrücken',e:'Overhead Press',a:'OHP Military Press Shoulder Press Langhantel stehend',g:'shoulders'},
+ {id:'db-ohp',n:'Kurzhantel-Schulterdrücken',e:'Dumbbell Shoulder Press',a:'KH',g:'shoulders',per:1},
+ {id:'lat-raise',n:'Seitheben',e:'Lateral Raise',a:'KH',g:'shoulders',per:1},
+ {id:'rear-delt',n:'Reverse Flys',e:'Reverse Flyes',a:'Rear Delt hintere Schulter',g:'shoulders'},
+ {id:'arnold',n:'Arnold Press',e:'Arnold Press',a:'Arnold Drücken',g:'shoulders',per:1},
+ {id:'curl',n:'Langhantel-Curls',e:'Barbell Curl',a:'Bizeps',g:'arms'},
+ {id:'db-curl',n:'Kurzhantel-Curls',e:'Dumbbell Curl',a:'Bizeps KH',g:'arms',per:1},
+ {id:'hammer',n:'Hammer Curls',e:'Hammer Curl',a:'Hammercurl',g:'arms',per:1},
+ {id:'ez-curl',n:'SZ-Curls',e:'EZ-Bar Curl',a:'Bizeps',g:'arms'},
+ {id:'pushdown',n:'Trizepsdrücken am Kabel',e:'Triceps Pushdown',a:'Trizeps',g:'arms'},
+ {id:'skull',n:'French Press',e:'Skull Crusher',a:'Stirndrücken Trizeps',g:'arms'},
+ {id:'cable-crunch',n:'Kabel-Crunches',e:'Cable Crunch',a:'Bauch',g:'core'},
+ {id:'leg-raise',n:'Beinheben hängend',e:'Hanging Leg Raise',a:'Bauch',g:'core',k:'bw'},
+ {id:'ab-wheel',n:'Ab-Roller',e:'Ab Wheel',a:'Rollout Bauch',g:'core',k:'bw'},
+ {id:'clean',n:'Power Clean',e:'Power Clean',a:'Umsetzen olympisch',g:'full'}
+];
+
+/* ---------- i18n ---------- */
+const TX = {
+  tab_stats:['Statistik','Stats'], tab_uebungen:['Übungen','Exercises'], tab_profil:['Profil','Profile'], tab_optionen:['Optionen','Settings'], nav:['Bereiche','Sections'],
+  s_conn:['Verbinde…','Connecting…'], s_err:['Nicht gespeichert','Not saved'], s_busy:['Speichert…','Saving…'], s_local:['Nur lokal','Local only'],
+  hello:['Hallo','Hi'],
+  in_hi:['Hallo.','Hi.'], in_lead:['Bei Liftfolio kannst du deiner Kraft beim Wachsen zusehen. Ohne Werbung, ohne Abo und ohne Schnickschnack.','With Liftfolio you can watch your strength grow. No ads, no subscription, no fluff.'],
+  in_go:['Los geht’s','Let’s go'], in_you:['Kurz zu dir','A bit about you'], in_opt:['Alles freiwillig. Du kannst es später im Profil ändern.','All optional. You can change it later in your profile.'],
+  in_next:['Weiter','Next'], in_skip:['Überspringen','Skip'], in_hey:['Hey!','Hey!'], in_hey_n:['Hey {n}!','Hey {n}!'],
+  in_tip1:['{hey} Unter {ex} trägst du ganz einfach ein, was du stemmst: Übung suchen, Gewicht und Wiederholungen rein, fertig.','{hey} Under {ex} you simply log what you lift: find an exercise, enter weight and reps, done.'],
+  in_tip2:['Unter {st} siehst du dann, wie sich deine Kraft entwickelt hat. So fühlt sich Fortschritt richtig belohnend an.','{st} then shows how your strength has developed. That’s what makes progress feel truly rewarding.'],
+  in_tip3:['Der Tab {st} ist deine Pinnwand. Du kannst jederzeit anpassen, welche Statistiken du sehen willst. Probier’s einfach aus!','The {st} tab is your board. You can change which stats you see at any time. Just give it a try!'],
+  in_first:['Erste Übung eintragen','Log your first lift'], in_tostats:['Zur Statistik','Go to stats'], intro_again:['Einführung ansehen','Show intro'],
+  since_up:['Du trainierst seit {d} und bist heute {p} stärker als am Anfang.','You’ve been training for {d} and you’re {p} stronger than when you started.'],
+  since_flat:['Du trainierst seit {d} und hältst dein Niveau.','You’ve been training for {d} and you’re holding your level.'],
+  and:['und','and'], day:['Tag','day'], days:['Tagen','days'], month:['Monat','month'], months:['Monaten','months'], year:['Jahr','year'], years:['Jahren','years'],
+  loading:['Lädt…','Loading…'], none:['Noch keine Einträge','No entries yet'], pick:['Übung wählen','Pick an exercise'],
+  demo:['Beispieldaten','Sample data'], remove:['Entfernen','Remove'], sure_rm:['Wirklich entfernen?','Really remove?'],
+  gain_lbl:['Kraftzuwachs','Strength gain'], top_gain:['Stärkster Zuwachs: {x} {p}','Biggest gain: {x} {p}'], start:['Start','Start'],
+  board:['Pinnwand','Board'], edit:['Bearbeiten','Edit'], done:['Fertig','Done'], drag_hint:['Ziehen zum Sortieren','Drag to reorder'], unpin:['Von der Pinnwand entfernen','Remove from board'], pin_add:['Zur Pinnwand hinzufügen','Add to board'],
+  pick_card:['Karte hinzufügen','Add a card'], pick_kpi:['Kachel wählen','Choose a tile'], kpi_add:['Kachel hinzufügen','Add tile'], kpi_clear:['Kachel leeren','Clear tile'], close:['Schließen','Close'], nothing_add:['Alles ist schon angepinnt','Everything is already pinned'],
+  k_total:['Gesamtkraft','Total strength'], k_top:['Top-Übung','Top exercise'], k_prs:['Rekorde','Records'], k_big3:['Big 3','Big 3'], k_sessions:['Einheiten','Sessions'], k_volume:['Volumen','Volume'], k_streak:['Serie','Streak'], k_bw:['Körpergewicht','Body weight'],
+  total_sub:['Summe deiner Bestwerte','sum of your bests'], week1:['Woche','week'], weeks:['Wochen','weeks'], in_row:['in Folge trainiert','trained in a row'], per_week_s:['pro Woche','per week'], big3_need:['Bank, Kniebeuge und Kreuzheben eintragen','Log bench, squat and deadlift'],
+  records:['Rekorde','Records'], last_pr:['zuletzt {x}','latest: {x}'], no_pr:['noch keiner','none yet'],
+  r90:['3 Monate','3 months'], r180:['6 Monate','6 months'], r365:['1 Jahr','1 year'], r0:['gesamt','all time'],
+  c90:['3M','3M'], c180:['6M','6M'], c365:['1J','1Y'], c0:['Alle','All'], range:['Zeitraum','Range'],
+  progress:['Verlauf','Progress'], exercises:['Übungen','Exercises'],
+  volume:['Volumen','Volume'], per_week:['Ø pro Woche','avg per week'], sessions:['Einheiten','Sessions'], bodyweight:['Körpergewicht','Body weight'], x_bw:['× Körpergewicht','× body weight'],
+  week_of:['Woche ab {d}','Week of {d}'], n_sessions:['{n} Einheiten','{n} sessions'], record:['Rekord','Record'], vs_start:['vs. Start','vs. start'],
+  search:['Suchen','Search'], search_ex:['Übung suchen','Search exercises'], all:['Alle','All'], group:['Gruppe','Group'], type:['Art','Type'], ex_name:['Name der Übung','Exercise name'],
+  weight:['Gewicht','Weight'], bwex:['Körpergewicht','Bodyweight'], own_ex:['+ Eigene Übung','+ Custom exercise'], create:['Anlegen','Create'], cancel:['Abbrechen','Cancel'], muscle:['Muskelgruppe','Muscle group'], custom_tag:['eigene','custom'],
+  g_chest:['Brust','Chest'], g_back:['Rücken','Back'], g_legs:['Beine','Legs'], g_shoulders:['Schultern','Shoulders'], g_arms:['Arme','Arms'], g_core:['Core','Core'], g_full:['Ganzkörper','Full body'],
+  back:['Zurück','Back'], notfound:['Nicht gefunden','Not found'], e1rm_lbl:['Geschätztes 1RM · Bestwert','Estimated 1RM · best'], reps_lbl:['Max. Wiederholungen · Bestwert','Max reps · best'],
+  ex_gain:['{p} seit {d}','{p} since {d}'], best_on:['Bestwert am {d}','best on {d}'], goal:['Nächstes Ziel {g} · noch {x}','Next goal {g} · {x} to go'],
+  set:['Satz','Set'], pkg:['+ kg','+ kg'], per_db:['je Hantel','per dumbbell'], reps:['Wdh','reps'], Reps:['Wdh','Reps'], sets:['Sätze','Sets'], date:['Datum','Date'], log:['Eintragen','Log it'],
+  less:['{v} weniger','{v} less'], more_kg:['{v} mehr','{v} more'], kind:['Art','Type'],
+  rep_eq:['Wdh-Äquivalent','Rep equivalent'], work:['Arbeitsgewicht','Working weight'], reps_set:['Wdh pro Satz','Reps per set'], heaviest:['schwerster Satz','heaviest set'], avg4:['Ø 4 Wochen','4-week avg'],
+  rep_rec:['Wdh-Rekorde','Rep records'], achieved:['erreicht','achieved'], projected:['Prognose','Projected'], no_set:['kein Satz','no set'],
+  d30:['30 Tage','30 days'], d90:['90 Tage','90 days'], trend:['Trend / Monat','Trend / month'], test:['1RM-Test','1RM test'], history:['Verlauf','History'], all_n:['Alle {n}','All {n}'],
+  del_q:['Löschen?','Delete?'], del_entry:['Eintrag löschen','Delete entry'], del_ex:['Übung löschen','Delete exercise'], del_ex_q:['Wirklich löschen?','Really delete?'],
+  profile:['Profil','Profile'], name:['Name','Name'], height_w:['Größe','Height'], born:['Geburtsdatum','Date of birth'],
+  current:['Aktuell','Current'], age:['Alter','Age'], today_w:['Heute','Today'], weight_w:['Gewicht','Weight'], unit:['Einheiten','Units'], save:['Speichern','Save'],
+  settings:['Optionen','Settings'], mode:['Modus','Mode'], m_system:['System','System'], m_light:['Hell','Light'], m_dark:['Dunkel','Dark'], color:['Statistikfarbe','Chart colour'], lang:['Sprache','Language'], preview:['Vorschau','Preview'],
+  data:['Daten','Data'], export:['Export','Export'], import:['Import','Import'], demo_rm:['Beispieldaten entfernen','Remove sample data'], wipe:['Alles löschen','Delete everything'], wipe_q:['Alles löschen?','Delete everything?'],
+  paste:['Export-JSON einfügen','Paste export JSON'], do_import:['Importieren','Import'], import_q:['Alle Daten ersetzen?','Replace all data?'],
+  f_local:['Nur in diesem Browser','Only in this browser'], f_epley:['e1RM nach Epley','e1RM via Epley'],
+  f_dev:['Nur auf diesem Gerät · im Geräte-Backup enthalten','Only on this device · included in device backups'],
+  remind:['Erinnerung','Reminder'], r_off:['Aus','Off'], r_days:['{n} Tage','{n} days'], remind_h:['Tage ohne Training, nach denen Liftfolio dich erinnert.','Days without training before Liftfolio nudges you.'],
+  r_body:['Seit {n} Tagen kein Satz. Dein Kurs wartet.','{n} days without a set. Your chart is waiting.'], t_noperm:['Mitteilungen in den Einstellungen erlauben','Allow notifications in Settings'],
+  privacy:['Datenschutz','Privacy'], privacy_full:['Vollständige Datenschutzerklärung','Full privacy policy'], privacy_t:['Liftfolio erhebt keine Daten. Alles, was du einträgst, bleibt in einer Datei auf diesem Gerät und ist Teil deines normalen Geräte-Backups. Kein Konto, keine Werbung, kein Tracking, kein Server. Eine Datei verlässt das Gerät nur, wenn du selbst exportierst. Erinnerungen sind lokale Mitteilungen.','Liftfolio collects no data. Everything you enter stays in a file on this device and is part of your regular device backup. No account, no ads, no tracking, no server. A file only leaves the device when you export it yourself. Reminders are local notifications.'],
+  pick_file:['Datei wählen','Choose file'], t_file:['Datei geladen – jetzt importieren','File loaded – now import'],
+  p_blau:['Blau','Blue'], p_tuerkis:['Türkis','Teal'], p_gruen:['Grün','Green'], p_gelb:['Gelb','Yellow'], p_orange:['Orange','Orange'], p_rot:['Rot','Red'], p_pink:['Pink','Pink'], p_violett:['Violett','Violet'], p_weiss:['Weiß','White'],
+  t_removed:['Entfernt','Removed'], t_deleted:['Gelöscht','Deleted'], t_demo:['Beispieldaten entfernt','Sample data removed'], t_copied:['Kopiert','Copied'], t_select:['Markiert – jetzt kopieren','Selected – copy it now'],
+  t_json:['Kein gültiges JSON','Not valid JSON'], t_format:['Format nicht erkannt','Format not recognised'], t_imported:['Importiert','Imported'], t_height:['Größe: 100–250 cm','Height: 100–250 cm'], t_height_i:['Größe: 3′3″ – 8′2″','Height: 3′3″ – 8′2″'], t_date:['Datum prüfen','Check the date'],
+  t_w:['Gewicht fehlt','Weight missing'], t_r:['Wdh: 1–100','Reps: 1–100'], t_s:['Sätze: 1–30','Sets: 1–30'], t_d:['Datum fehlt','Date missing'], t_logged:['Eingetragen','Logged'], t_name:['Name fehlt','Name missing'], t_created:['Übung angelegt','Exercise created'],
+  t_pr:['Neuer Rekord: {v}','New record: {v}'], t_goal:['Ziel erreicht: {v}','Goal reached: {v}'], t_bw:['25–300 kg','25–300 kg'], t_saved:['Gespeichert','Saved'],
+  t_fail:['Speichern fehlgeschlagen','Save failed'], t_nostore:['Kein Speicher verfügbar','No storage available'],
+  nodata:['Keine Daten im Zeitraum','No data in range'], charterr:['Diagramm-Fehler','Chart error'], linechart:['Liniendiagramm','Line chart']
+};
+let LI = 0, LOC = 'de-DE';
+const t = (k, v) => { const s = TX[k] ? TX[k][LI] : k; return v ? s.replace(/\{(\w+)\}/g, (_, x) => v[x] != null ? v[x] : '') : s; };
+const exName = ex => ex.custom ? ex.n : (LI ? ex.e : ex.n);
+
+/* ---------- utils ---------- */
+const DAY = 864e5;
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2,'0');
+const today = () => { const d = new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); };
+const dnum = s => Date.UTC(+s.slice(0,4), +s.slice(5,7)-1, +s.slice(8,10)) / DAY;
+let FMT = {};
+const fmt = (k, mk) => FMT[k] || (FMT[k] = mk());
+const f0 = v => fmt('n0', () => new Intl.NumberFormat(LOC,{maximumFractionDigits:0})).format(v);
+const f1 = v => fmt('n1', () => new Intl.NumberFormat(LOC,{maximumFractionDigits:1})).format(v);
+const f2 = v => fmt('n2', () => new Intl.NumberFormat(LOC,{minimumFractionDigits:2,maximumFractionDigits:2})).format(v);
+const dLong = n => fmt('dl', () => new Intl.DateTimeFormat(LOC,{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'})).format(new Date(n*DAY));
+const dNum = n => fmt('dn', () => new Intl.DateTimeFormat(LOC,{day:'2-digit',month:'2-digit',year:'2-digit',timeZone:'UTC'})).format(new Date(n*DAY));
+const mShort = n => fmt('ms', () => new Intl.DateTimeFormat(LOC,{month:'short',timeZone:'UTC'})).format(new Date(n*DAY)).replace('.', '');
+const weekStart = n => n - (((n + 3) % 7) + 7) % 7;
+const num = s => parseFloat(String(s == null ? '' : s).replace(',', '.').trim());
+const uid = () => 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const isDemo = e => typeof e.i === 'string' && e.i.startsWith('demo-');
+const plus = v => (v > 0.049 ? '+' : '') + f1(v);
+// Einheit: intern immer kg, Anzeige und Eingabe in kg oder lb
+const LBF = 2.20462262185;
+const isLb = () => S.opt.unit === 'lb';
+const WU = () => isLb() ? 'lb' : 'kg';
+const toD = kg => isLb() ? kg * LBF : kg;
+const fromD = v => isLb() ? v / LBF : v;
+const dispW = kg => isLb() ? Math.round(kg * LBF * 10) / 10 : kg;
+const volParts = v => v >= 1000 ? [f1(v / 1000), isLb() ? 'k lb' : 't'] : [f0(v), WU()];
+const bwRange = () => isLb() ? '55–660 lb' : '25–300 kg';
+// Größe: intern cm, bei lb-Einstellung Anzeige/Eingabe in Fuß und Zoll
+const ftIn = cm => { const tot = cm / 2.54; let ft = Math.floor(tot / 12), inch = Math.round(tot - ft * 12); if (inch === 12){ ft++; inch = 0; } return [ft, inch]; };
+const hFmt = cm => { const [ft, inch] = ftIn(cm); return `${ft}′${inch}″`; };
+const hRange = () => t(isLb() ? 't_height_i' : 't_height');
+function hRead(pre){ // liefert cm, '' (leer) oder null (ungültig)
+  if (!isLb()){ const raw = ($('#' + pre + '-h') || {}).value || ''; if (!raw.trim()) return ''; const n = num(raw); return n >= 100 && n <= 250 ? Math.round(n) : null; }
+  const fr = (($('#' + pre + '-hft') || {}).value || '').trim(), ir = (($('#' + pre + '-hin') || {}).value || '').trim();
+  if (!fr && !ir) return '';
+  const ft = fr ? num(fr) : 0, inch = ir ? num(ir) : 0; if (!isFinite(ft) || !isFinite(inch) || ft < 0 || inch < 0 || inch >= 12) return null;
+  const cm = (ft * 12 + inch) * 2.54; return cm >= 100 && cm <= 250 ? Math.round(cm) : null;
+}
+function heightField(pre, cm, extra){
+  if (!isLb()) return `<label class="field"><span>${t('height_w')} cm</span><input type="text" id="${pre}-h" ${extra} inputmode="numeric" placeholder="180" value="${cm || ''}"></label>`;
+  const [ft, inch] = cm ? ftIn(cm) : ['', ''];
+  return `<div class="field"><span>${t('height_w')} ft / in</span><div class="hfi"><input type="text" id="${pre}-hft" ${extra} inputmode="numeric" placeholder="5" value="${ft}" aria-label="${t('height_w')} ft"><span>ft</span><input type="text" id="${pre}-hin" ${extra} inputmode="numeric" placeholder="11" value="${inch}" aria-label="${t('height_w')} in"><span>in</span></div></div>`;
+}
+const bwToKg = v => { const kg = fromD(v); return kg >= 25 && kg <= 300 ? Math.round(kg * (isLb() ? 100 : 10)) / (isLb() ? 100 : 10) : null; };
+const pct = v => (v > 0.049 ? '+' : '') + f1(v) + ' %';
+const pill = (v, unit, lg) => `<span class="dp${v > 0.049 ? ' up' : ''}${lg ? ' xl' : ''}">${v > 0.049 ? '▲ ' : ''}${plus(v)}${unit ? ' ' + unit : ''}</span>`;
+const ageOf = p => {
+  if (p.born){ const [y, mo, d] = p.born.split('-').map(Number), n = new Date(); let a = n.getFullYear() - y; if (n.getMonth() + 1 < mo || (n.getMonth() + 1 === mo && n.getDate() < d)) a--; return a; }
+  return p.by ? new Date().getFullYear() - p.by : null;
+};
+const wFmt = v => volParts(v).join(' ');
+const ma4 = pts => pts.map((p, i) => { const w = pts.slice(Math.max(0, i - 3), i + 1); return {x:p.x, raw:p.y, y: w.reduce((a,q) => a + q.y, 0) / w.length}; });
+function duration(days){
+  const u = (n, one, many) => `${n} ${t(n === 1 ? one : many)}`;
+  if (days < 31) return u(Math.max(1, days), 'day', 'days');
+  if (days < 365) return u(Math.max(1, Math.floor(days / 30.44)), 'month', 'months');
+  const y = Math.floor(days / 365.25), m = Math.floor((days - y * 365.25) / 30.44);
+  return u(y, 'year', 'years') + (m >= 1 && y < 5 ? ` ${t('and')} ${u(m, 'month', 'months')}` : '');
+}
+// nächste runde Marke über dem Bestwert
+function nextGoal(best, isReps){
+  const step = isReps ? (best < 10 ? 1 : 5) : isLb() ? (best < 100 ? 5 : 10) : (best < 30 ? 2.5 : best < 60 ? 5 : 10);
+  const goal = (Math.floor(best / step + 1e-9) + 1) * step;
+  return {goal, prev: goal - step, p: (best - (goal - step)) / step};
+}
+
+/* ---------- state ---------- */
+const S = {
+  profile: normProfile(null), logs: {}, loaded: false, mode: 'loading',
+  view: 'stats', exId: null, q: '', group: '', creating: false,
+  range: 180, kind: {}, confirm: null, logMore: false, showImport: false, needPrefill: false,
+  opt: {mode:'dark', color:'gruen', lang: /^de/i.test(navigator.language || 'de') ? 'de' : 'en', unit: defUnit()},
+  boardEdit: false, sheet: null, intro: null, introChecked: false
+};
+try { const r = +localStorage.getItem('satzbuch-range'); if ([90,180,365,0].includes(r)) S.range = r; } catch(e) {}
+try { const o = normOpt(JSON.parse(localStorage.getItem('satzbuch-opt') || 'null')); if (o) S.opt = o; } catch(e) {}
+
+function defUnit(){ return /^en-(US|LR)$|^my\b/i.test(navigator.language || '') ? 'lb' : 'kg'; }
+function normOpt(o){ if (!o || typeof o !== 'object') return null; return {mode: ['system','light','dark'].includes(o.mode) ? o.mode : 'dark', color: PALETTE[o.color] ? o.color : 'gruen', lang: o.lang === 'en' ? 'en' : o.lang === 'de' ? 'de' : (/^de/i.test(navigator.language || 'de') ? 'de' : 'en'), unit: o.unit === 'lb' || o.unit === 'kg' ? o.unit : defUnit()}; }
+function normProfile(p){
+  p = p && typeof p === 'object' ? JSON.parse(JSON.stringify(p)) : {};
+  let kp = Array.isArray(p.kpis) ? [0,1,2].map(i => p.kpis[i] === 'ups' ? 'total' : KPI_IDS.includes(p.kpis[i]) ? p.kpis[i] : null) : ['total', null, null];
+  kp = kp.map((k, i) => k && kp.indexOf(k) === i ? k : null);
+  return {
+    name: typeof p.name === 'string' ? p.name.slice(0,40) : '',
+    height: +p.height > 0 ? +p.height : null,
+    born: /^\d{4}-\d{2}-\d{2}$/.test(p.born || '') ? p.born : null,
+    by: +p.by > 0 ? +p.by : null,
+    bw: Array.isArray(p.bw) ? p.bw.filter(b => b && b.d && b.w > 0).sort((a,b) => a.d < b.d ? -1 : 1) : [],
+    custom: (Array.isArray(p.custom) ? p.custom : []).map(c => Object.assign({}, c, {g: ({'Brust':'chest','Rücken':'back','Beine':'legs','Schultern':'shoulders','Arme':'arms','Core':'core','Ganzkörper':'full'})[c.g] || c.g})),
+    opt: normOpt(p.opt),
+    kpis: kp,
+    board: Array.isArray(p.board) ? p.board.filter(k => typeof k === 'string' && /^(ex|g):[A-Za-z0-9-]+$/.test(k)) : null,
+    demo: !!p.demo,
+    remind: [2,3,5,7].includes(+p.remind) ? +p.remind : 0,
+    onboarded: !!p.onboarded
+  };
+}
+/* ---------- theme + language ---------- */
+function lum(hex){ const v = [1,3,5].map(i => parseInt(hex.slice(i, i+2), 16) / 255).map(c => c <= .03928 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4); return .2126*v[0] + .7152*v[1] + .0722*v[2]; }
+const onColor = hex => { const L = lum(hex); return (1.05 / (L + .05)) >= ((L + .05) / .05) ? '#ffffff' : '#000000'; };
+function applyTheme(){
+  const p = PALETTE[S.opt.color] || PALETTE.blau, r = document.documentElement;
+  r.style.setProperty('--c-d', p.d); r.style.setProperty('--c-l', p.l);
+  r.style.setProperty('--on-d', onColor(p.d)); r.style.setProperty('--on-l', onColor(p.l));
+  r.classList.toggle('m-light', S.opt.mode === 'light'); r.classList.toggle('m-dark', S.opt.mode === 'dark');
+  const lang = S.opt.lang === 'en' ? 'en' : 'de';
+  if (LI !== (lang === 'en' ? 1 : 0) || !r.lang){ LI = lang === 'en' ? 1 : 0; LOC = LI ? 'en-US' : 'de-DE'; FMT = {}; r.lang = lang; }
+  document.querySelectorAll('[data-tab]').forEach(a => { const s = t('tab_' + a.dataset.tab); a.setAttribute('aria-label', s); a.querySelector('span').textContent = s; });
+  $('#tabs').setAttribute('aria-label', t('nav'));
+  setSync(); setStatusBar();
+}
+function setStatusBar(){ const sb = NP('StatusBar'); if (!sb) return; try { sb.setStyle({style: isDark() ? 'DARK' : 'LIGHT'}).catch(() => {}); } catch(e) {} }
+const isDark = () => S.opt.mode === 'dark' || (S.opt.mode !== 'light' && (document.documentElement.getAttribute('data-theme') === 'dark' || (document.documentElement.getAttribute('data-theme') !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)));
+try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { setStatusBar(); if (S.view === 'optionen') render(); }); } catch(e) {}
+
+function allEx(){ return EX.concat((S.profile.custom||[]).map(c => ({id:c.id, n:c.n, e:c.n, a:'', g:c.g, k:c.k, custom:1}))); }
+function exById(id){ return allEx().find(e => e.id === id); }
+const kindOf = ex => ex.k === 'bw' ? 'bw' : 'w';
+const unitOf = ex => kindOf(ex) === 'bw' ? t('reps') : WU();
+
+/* ---------- Kennzahlen ---------- */
+function bwAt(dn){
+  const b = S.profile.bw; if (!b.length) return 75;
+  let v = b[0].w; for (const x of b) { if (dnum(x.d) <= dn) v = x.w; else break; } return v;
+}
+const e1 = (w, r) => r <= 1 ? w : w * (1 + r / 30);
+// Körpergewichtsübungen: Wdh.-Äquivalent bei reinem Körpergewicht (Epley über Gesamtlast)
+function metric(e, ex){
+  if (kindOf(ex) === 'bw'){ const bw = bwAt(dnum(e.d)); const L = bw + (+e.w||0); return Math.max(0, 30 * (L / bw) * (1 + (e.t ? 1 : e.r) / 30) - 30); }
+  return toD(e.t ? +e.w : e1(+e.w, +e.r));
+}
+function volume(e, ex){ const r = e.t ? 1 : +e.r, s = e.t ? 1 : (+e.s||1); const L = kindOf(ex) === 'bw' ? bwAt(dnum(e.d)) + (+e.w||0) : +e.w; return toD(L) * r * s; }
+
+const CACHE = new Map();
+function analyze(id){
+  const ex = exById(id), raw = S.logs[id] || [];
+  const key = raw.length + '|' + (raw.length ? raw[raw.length-1].i : '') + '|' + JSON.stringify(S.profile.bw) + '|' + S.opt.unit;
+  const c = CACHE.get(id); if (c && c.key === key) return c.v;
+  const entries = raw.filter(e => e && e.d && isFinite(+e.w)).slice().sort((a,b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0);
+  const days = new Map();
+  for (const e of entries){
+    const dn = dnum(e.d), m = metric(e, ex);
+    let d = days.get(dn); if (!d) { d = {dn, best:-1, set:null, tested:false, vol:0, sets:0, entries:[]}; days.set(dn, d); }
+    d.entries.push(e); d.vol += volume(e, ex); d.sets += e.t ? 1 : (+e.s||1);
+    if (m > d.best) { d.best = m; d.set = e; }
+    if (e.t) d.tested = true;
+  }
+  const series = [...days.values()].sort((a,b) => a.dn - b.dn);
+  let run = -1; const prs = [];
+  for (const d of series){ d.pr = run >= 0 && d.best > run + 1e-9; if (d.pr) prs.push(d.dn); run = Math.max(run, d.best); d.run = run; }
+  const best = series.length ? run : null;
+  const bestDay = series.find(d => d.best === best) || null;
+  const tested = entries.filter(e => e.t).reduce((m,e) => Math.max(m, toD(+e.w)), -Infinity);
+  const v = {ex, entries, series, prs, best, bestDay, tested: isFinite(tested) ? tested : null};
+  CACHE.set(id, {key, v}); return v;
+}
+function runningBestAt(A, dn){ let r = null; for (const d of A.series){ if (d.dn <= dn) r = d.run; else break; } return r; }
+// Vergleichswert: Bestwert zu Beginn des Zeitraums, sonst der erste Wert im Zeitraum
+function baseOf(A, x0){ const b = runningBestAt(A, x0 - 1); if (b != null) return {v:b, dn:x0}; const d = A.series.find(s => s.dn >= x0); return d ? {v:d.best, dn:d.dn} : null; }
+function trend(A){
+  const end = dnum(today()), pts = A.series.filter(d => d.dn >= end - 90);
+  if (pts.length < 3 || pts[pts.length-1].dn - pts[0].dn < 14) return null;
+  const n = pts.length, mx = pts.reduce((s,p)=>s+p.dn,0)/n, my = pts.reduce((s,p)=>s+p.best,0)/n;
+  let sxy = 0, sxx = 0; for (const p of pts){ sxy += (p.dn-mx)*(p.best-my); sxx += (p.dn-mx)**2; }
+  return sxx ? sxy / sxx : null;
+}
+const trackedIds = () => Object.keys(S.logs).filter(id => (S.logs[id]||[]).length && exById(id));
+const hasDemo = () => S.profile.demo || trackedIds().some(id => S.logs[id].some(isDemo));
+const weeklyStrip = A => { const m = new Map(); for (const d of A.series){ const w = weekStart(d.dn); m.set(w, (m.get(w) || 0) + 1); } return dn => { const n = m.get(weekStart(dn)) || 0; return n ? Math.min(1, .3 + n * .25) : 0; }; };
+
+/* ---------- storage ---------- */
+let backend = null;
+const sync = {pending:0, err:false};
+function setSync(){
+  const el = $('#sync'); if (!el) return; let cls = '', k;
+  if (S.mode === 'native'){ el.hidden = true; return; }
+  if (S.mode === 'loading') k = 's_conn';
+  else if (sync.err) { cls = 'err'; k = 's_err'; }
+  else if (sync.pending) { cls = 'busy'; k = 's_busy'; }
+  else k = 's_local';
+  el.className = 'sync ' + cls; el.title = t(k); el.lastElementChild.textContent = t(k);
+}
+function adoptProfile(prof){
+  S.profile = normProfile(prof);
+  const o = S.profile.opt;
+  if (o && (o.mode !== S.opt.mode || o.color !== S.opt.color || o.lang !== S.opt.lang || o.unit !== S.opt.unit)){
+    S.opt = o; try { localStorage.setItem('satzbuch-opt', JSON.stringify(S.opt)); } catch(e) {} CACHE.clear(); applyTheme();
+  }
+}
+function makeLocal(){
+  const K = 'satzbuch-v1'; let ok = true;
+  try { const raw = JSON.parse(localStorage.getItem(K) || 'null'); if (raw) { S.logs = raw.logs || {}; adoptProfile(raw.profile); } } catch(e) { ok = false; }
+  const save = () => { try { localStorage.setItem(K, JSON.stringify({profile:S.profile, logs:S.logs})); } catch(e) { if (ok) toast(t('t_nostore')); ok = false; } };
+  return { saveLog: save, saveProfile: save };
+}
+// Gerätespeicher: erst vollständige Kopie (.new), dann Hauptdatei – bricht ein Schreibvorgang ab, bleibt eine intakte Datei
+function makeNative(){
+  const FS = NP('Filesystem'), F = 'liftfolio.json', F2 = 'liftfolio.new.json', DIR = 'DATA';
+  let timer = null, chain = Promise.resolve(), failed = false;
+  const write = () => {
+    timer = null; const data = JSON.stringify({v:1, profile:S.profile, logs:S.logs});
+    chain = chain.then(() => FS.writeFile({path:F2, directory:DIR, data, encoding:'utf8'}))
+      .then(() => FS.writeFile({path:F, directory:DIR, data, encoding:'utf8'}))
+      .then(() => { failed = false; })
+      .catch(() => { if (!failed) toast(t('t_fail')); failed = true; });
+    return chain;
+  };
+  const save = () => { clearTimeout(timer); timer = setTimeout(write, 200); };
+  const read = async p => JSON.parse((await FS.readFile({path:p, directory:DIR, encoding:'utf8'})).data);
+  return {
+    saveLog: save, saveProfile: save,
+    flush: () => { if (timer){ clearTimeout(timer); return write(); } return chain; },
+    load: async () => {
+      let raw = null;
+      try { raw = await read(F); } catch(e) { try { raw = await read(F2); } catch(e2) {} }
+      if (!raw) { try { raw = JSON.parse(localStorage.getItem('satzbuch-v1') || 'null'); if (raw) setTimeout(save, 0); } catch(e) {} }
+      if (raw) { S.logs = raw.logs || {}; adoptProfile(raw.profile); }
+    }
+  };
+}
+// Erinnerung: eine Mitteilung X Tage nach dem letzten Training, 18 Uhr; wird bei jedem Eintrag neu gesetzt
+async function scheduleRemind(){
+  const LN = NP('LocalNotifications'); if (!LN) return;
+  try { await LN.cancel({notifications:[{id:1}]}); } catch(e) {}
+  const n = S.profile.remind || 0; if (!n) return;
+  let last = '';
+  for (const id of trackedIds()) for (const e of S.logs[id]) if (e.d > last) last = e.d;
+  const base = last ? new Date(+last.slice(0,4), +last.slice(5,7)-1, +last.slice(8,10)) : new Date();
+  const at = new Date(base.getFullYear(), base.getMonth(), base.getDate() + n, 18, 0, 0);
+  if (at.getTime() < Date.now() + 36e5){ const d = new Date(); at.setTime(new Date(d.getFullYear(), d.getMonth(), d.getDate() + (d.getHours() < 17 ? 0 : 1), 18, 0, 0).getTime()); }
+  const days = Math.max(n, Math.round((new Date(at.getFullYear(), at.getMonth(), at.getDate()) - base) / DAY));
+  try { await LN.schedule({notifications:[{id:1, title:'Liftfolio', body:t('r_body', {n: days}), schedule:{at, allowWhileIdle:true}}]}); } catch(e) {}
+}
+async function setRemind(n){
+  const LN = NP('LocalNotifications'); if (!LN) return;
+  if (n){ try { const p = await LN.requestPermissions(); if (p.display !== 'granted'){ toast(t('t_noperm')); return; } } catch(e) { toast(t('t_noperm')); return; } }
+  S.profile.remind = n; saveProfile(); render(); scheduleRemind();
+}
+function nativeSetup(){
+  const App = NP('App');
+  if (App){
+    try {
+      App.addListener('pause', () => { if (backend && backend.flush) backend.flush(); });
+      App.addListener('resume', () => { scheduleRemind(); if (S.view === 'stats') render(); });
+      App.addListener('backButton', () => { if (S.sheet){ S.sheet = null; render(); } else if (S.view !== 'stats') history.back(); else App.exitApp(); });
+    } catch(e) {}
+  }
+  const sp = NP('SplashScreen'); if (sp) try { sp.hide().catch(() => {}); } catch(e) {}
+  scheduleRemind();
+}
+function saveLog(id){ CACHE.delete(id); return backend && backend.saveLog(id, S.logs[id] || []); }
+function saveProfile(){ CACHE.clear(); return backend && backend.saveProfile(JSON.parse(JSON.stringify(S.profile))); }
+async function init(){
+  applyTheme(); route(); setSync();
+  if (CAP && NP('Filesystem')){
+    backend = makeNative(); await backend.load();
+    S.mode = 'native'; S.loaded = true; setSync(); render(); nativeSetup(); return;
+  }
+  S.mode = 'local'; backend = makeLocal(); S.loaded = true; setSync(); render();
+}
+
+let toastT;
+function toast(msg){ const el = $('#toast'); el.textContent = msg; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 2600); }
+
+/* ---------- routing & render ---------- */
+const VIEWS = ['uebungen','profil','optionen'];
+function route(){
+  const h = (location.hash || '').slice(1);
+  if (h.startsWith('ex-')) { S.view = 'ex'; S.exId = h.slice(3); }
+  else if (VIEWS.includes(h)) S.view = h;
+  else S.view = 'stats';
+  S.confirm = null; S.creating = false; S.logMore = false; S.bwMore = false; S.showImport = false; S.needPrefill = S.view === 'ex'; S.sheet = null; S.boardEdit = false;
+  render(true);
+}
+window.addEventListener('hashchange', () => { route(); window.scrollTo(0,0); });
+
+let lastKey = '', CHARTS = {}, drag = null, renderPending = false;
+function render(nav){
+  if (S.loaded && !S.introChecked){ S.introChecked = true; if (needsIntro()) S.intro = {step:0, tip:0}; }
+  if (drag){ renderPending = true; return; }
+  const app = $('#app'), key = S.view + ':' + (S.exId||'');
+  const keep = {}; let focusId = null, sel = null;
+  if (!nav && key === lastKey){
+    app.querySelectorAll('[data-keep]').forEach(el => { keep[el.id] = el.value; });
+    const a = document.activeElement; if (a && a.id && app.contains(a)) { focusId = a.id; try { sel = [a.selectionStart, a.selectionEnd]; } catch(e) {} }
+  }
+  lastKey = key;
+  const tab = S.view === 'ex' ? 'uebungen' : S.view;
+  document.querySelectorAll('[data-tab]').forEach(a => { if (a.dataset.tab === tab) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
+  CHARTS = {};
+  app.innerHTML = S.view === 'ex' ? viewEx() : S.view === 'uebungen' ? viewSearch() : S.view === 'profil' ? viewProfile() : S.view === 'optionen' ? viewOptions() : viewStats();
+  $('#sheet').innerHTML = sheetHTML(); document.body.style.overflow = S.sheet ? 'hidden' : '';
+  for (const id in keep){ const el = document.getElementById(id); if (el) el.value = keep[id]; }
+  if (focusId){ const el = document.getElementById(focusId); if (el) { el.focus({preventScroll:true}); if (sel && sel[0] != null) try { el.setSelectionRange(sel[0], sel[1]); } catch(e) {} } }
+  if (S.view === 'ex'){
+    if (S.needPrefill && S.loaded) { prefill(); S.needPrefill = false; }
+    const fd = $('#f-d'); if (fd && !fd.value) fd.value = today();
+    updatePreview();
+  }
+  drawCharts();
+  renderIntro();
+}
+const rangeChips = () => `<div class="chips" role="group" aria-label="${t('range')}">${[90,180,365,0].map(v => `<button class="chip" data-range="${v}" aria-pressed="${S.range===v}">${t('c' + v)}</button>`).join('')}</div>`;
+const miniCard = (title, value, unit, sub, key, href, bkey) => {
+  const edit = bkey && S.boardEdit, tag = href && !edit ? 'a' : 'div';
+  return `<${tag}${tag === 'a' ? ` href="${href}"` : ''} class="mc${edit ? ' edit' : ''}"${bkey ? ` data-bkey="${bkey}"` : ''}${edit ? ' tabindex="0"' : ''}>
+  ${edit ? `<button class="rm" data-rm="${bkey}" aria-label="${t('unpin')}">✕</button>` : ''}
+  <div class="mh"><span class="mn">${title}</span><span class="mv">${value}${unit ? `<small>${unit}</small>` : ''}</span></div>
+  <div class="ms">${sub}</div><div class="chart mini" data-chart="${key}"></div></${tag}>`;
+};
+
+/* ---------- tab 1: Statistik ---------- */
+function exCard(A, x0, now, bkey){
+  const id = A.ex.id, pts = A.series.filter(d => d.dn >= x0).map(d => ({x:d.dn, y:d.run})), b = baseOf(A, x0);
+  const dl = b ? A.best - b.v : 0, dp = b && b.v > 0 ? dl / b.v * 100 : 0;
+  CHARTS['m-' + id] = {type:'line', mini:true, pts, x0, x1:now, base: b ? b.v : null, strip: weeklyStrip(A)};
+  return miniCard(esc(exName(A.ex)), f1(A.best), unitOf(A.ex), `<span class="t">${pct(dp)}</span>${pill(dl, unitOf(A.ex))}`, 'm-' + id, '#ex-' + id, bkey);
+}
+let STATS = null, BOARD = {shown:[], avail:[]};
+function statsCtx(){
+  const now = dnum(today()), As = trackedIds().map(analyze);
+  const first = Math.min(...As.map(A => A.series[0].dn));
+  const x0 = S.range ? now - S.range : first;
+  const weeks = []; for (let ws = weekStart(Math.max(first, x0)); ws <= now; ws += 7) weeks.push(ws);
+  // Kraft-Index: Mittel aller Übungen aus Bestwert ÷ Bestwert zu Beginn des Zeitraums (jede Übung zählt gleich)
+  const bases = As.map(A => ({A, b: baseOf(A, x0)})).filter(o => o.b && o.b.v > 0);
+  const idxAt = de => { let s = 0, n = 0; for (const {A, b} of bases){ if (b.dn > de) continue; const r = runningBestAt(A, de); if (r == null) continue; s += r / b.v; n++; } return n ? (s / n - 1) * 100 : null; };
+  const idxPts = []; for (const ws of weeks){ const de = Math.min(ws + 6, now), v = idxAt(de); if (v != null) idxPts.push({x:de, y:v}); }
+  const gain = idxPts.length ? idxPts[idxPts.length-1].y : 0;
+  // Gewinn seit dem allerersten Eintrag, für den Begrüßungssatz
+  let ga = 0, gn = 0; for (const A of As){ const b0 = A.series[0].best; if (b0 > 0){ ga += A.best / b0; gn++; } }
+  const gainAll = gn ? (ga / gn - 1) * 100 : 0;
+  let top = null; for (const {A, b} of bases){ const p = (A.best / b.v - 1) * 100; if (!top || p > top.p) top = {A, p}; }
+  // Gesamtkraft: Summe der Bestwerte aller Gewichtsübungen und Zuwachs gegenüber Zeitraumbeginn
+  let total = 0, totalDelta = 0; for (const {A, b} of bases) if (kindOf(A.ex) === 'w'){ total += A.best; totalDelta += A.best - b.v; }
+  let prN = 0, prLast = null;
+  for (const A of As) for (const dn of A.prs) if (dn >= x0){ prN++; if (!prLast || dn > prLast.dn) prLast = {dn, ex:A.ex}; }
+  const big = ['bench','squat','deadlift'].map(id => (S.logs[id] || []).length ? analyze(id) : null), bigPts = [];
+  let bigTot = null;
+  if (big.every(Boolean)){
+    for (const ws of weeks){ const de = Math.min(ws + 6, now); const v = big.map(A => runningBestAt(A, de)); if (v.every(x => x != null)) bigPts.push({x:de, y:v.reduce((a,b) => a + b, 0)}); }
+    if (bigPts.length) bigTot = big.reduce((a,A) => a + A.best, 0);
+  }
+  const dayMap = new Map(); for (const A of As) for (const d of A.series) dayMap.set(d.dn, (dayMap.get(d.dn) || 0) + d.vol);
+  const full = weeks.filter(ws => ws + 6 < now);
+  const vol = full.map(ws => { let v = 0; for (const [d, x] of dayMap) if (d >= ws && d < ws + 7) v += x; return {x:ws, y:v}; });
+  const ses = full.map(ws => { let n = 0; for (const d of dayMap.keys()) if (d >= ws && d < ws + 7) n++; return {x:ws, y:n}; });
+  const wk = new Map(); for (const d of dayMap.keys()){ const w = weekStart(d); wk.set(w, (wk.get(w) || 0) + 1); }
+  let ws = weekStart(now); if (!wk.has(ws)) ws -= 7; let streak = 0; while (wk.has(ws)) { streak++; ws -= 7; }
+  const inR = [...dayMap].filter(([d]) => d >= x0), daysIn = inR.length, volIn = inR.reduce((a, [, v]) => a + v, 0);
+  const nWeeks = Math.max(1, (now - Math.max(first, x0) + 1) / 7);
+  return {now, As, first, x0, weeks, idxPts, gain, gainAll, top, total, totalDelta, prN, prLast, bigPts, bigTot, full, vol, ses, streak, daysIn, volIn, nWeeks,
+    sessStrip: dn => { const n = wk.get(weekStart(dn)) || 0; return n ? Math.min(1, .2 + n * .2) : 0; },
+    bws: S.profile.bw.filter(b => dnum(b.d) >= x0), rLbl: t('r' + S.range)};
+}
+// Kacheln unter dem Kraftzuwachs
+function kpiDef(id, c){
+  if (id === 'total') return c.total > 0 ? {l:`${t('k_total')} · ${c.rLbl}`, v:f0(c.total), u:WU(), s:pill(c.totalDelta, WU())} : {l:t('k_total'), v:'–', s:t('total_sub')};
+  if (id === 'top') return c.top ? {l:`${t('k_top')} · ${c.rLbl}`, v:pct(c.top.p), s:esc(exName(c.top.A.ex))} : {l:t('k_top'), v:'–', s:''};
+  if (id === 'prs') return {l:`${t('k_prs')} · ${c.rLbl}`, v:f0(c.prN), s: c.prLast ? t('last_pr', {x:esc(exName(c.prLast.ex))}) : t('no_pr')};
+  if (id === 'big3') return c.bigTot != null ? {l:'Big 3', v:f0(c.bigTot), u:WU(), s:pill(c.bigTot - c.bigPts[0].y, WU())} : {l:'Big 3', v:'–', s:t('big3_need')};
+  if (id === 'sessions') return {l:`${t('k_sessions')} · ${c.rLbl}`, v:f0(c.daysIn), s:`Ø ${f1(c.daysIn / c.nWeeks)} ${t('per_week_s')}`};
+  if (id === 'volume') return {l:`${t('k_volume')} · ${c.rLbl}`, v: volParts(c.volIn)[0], u: volParts(c.volIn)[1], s:`Ø ${wFmt(c.volIn / c.nWeeks)} ${t('per_week_s')}`};
+  if (id === 'streak') return {l:t('k_streak'), v:f0(c.streak), u:t(c.streak === 1 ? 'week1' : 'weeks'), s:t('in_row')};
+  if (id === 'bw'){ const b = S.profile.bw, l = b[b.length-1]; return l ? {l:t('k_bw'), v:f1(toD(l.w)), u:WU(), s: c.bws.length > 1 ? `<span class="dp">${plus(toD(c.bws[c.bws.length-1].w - c.bws[0].w))} ${WU()}</span>` : ''} : {l:t('k_bw'), v:'–', s:''}; }
+  return {l:'', v:'', s:''};
+}
+// Pinnwand: Übungen ('ex:<id>') und allgemeine Karten ('g:...')
+function boardDefault(c){
+  return c.As.slice().sort((a,b) => b.series[b.series.length-1].dn - a.series[a.series.length-1].dn || b.series.length - a.series.length)
+    .map(A => 'ex:' + A.ex.id).concat(['g:big3','g:vol','g:ses','g:bw']);
+}
+function availKey(k, c){
+  if (k.startsWith('ex:')){ const id = k.slice(3); return !!exById(id) && (S.logs[id] || []).length > 0; }
+  if (k === 'g:big3') return c.bigPts.length > 0;
+  if (k === 'g:vol' || k === 'g:ses') return c.full.length > 0;
+  if (k === 'g:bw') return S.profile.bw.length > 0;
+  return false;
+}
+function cardName(k){ return k.startsWith('ex:') ? exName(exById(k.slice(3))) : {'g:big3':'Big 3','g:vol':t('volume'),'g:ses':t('sessions'),'g:bw':t('bodyweight')}[k]; }
+function cardValue(k, c){
+  if (k.startsWith('ex:')){ const A = analyze(k.slice(3)); return f1(A.best) + ' ' + unitOf(A.ex); }
+  if (k === 'g:big3') return f0(c.bigTot) + ' ' + WU();
+  if (k === 'g:vol') return wFmt(c.vol.reduce((a,p) => a + p.y, 0) / c.vol.length);
+  if (k === 'g:ses') return f1(c.ses.reduce((a,p) => a + p.y, 0) / c.ses.length);
+  if (k === 'g:bw') return f1(toD(S.profile.bw[S.profile.bw.length-1].w)) + ' ' + WU();
+  return '';
+}
+function cardFor(k, c){
+  const {x0, now} = c;
+  if (k.startsWith('ex:')) return exCard(analyze(k.slice(3)), x0, now, k);
+  if (k === 'g:big3'){ CHARTS.g_big = {type:'line', mini:true, pts:c.bigPts, x0, x1:now, base:c.bigPts[0].y, tip: p => `<b>${dLong(p.x)}</b>${f1(p.y)} ${WU()}`};
+    return miniCard('Big 3', f0(c.bigTot), WU(), `<span class="t">${f2(c.bigTot / toD(bwAt(now)))} ${t('x_bw')}</span>${pill(c.bigTot - c.bigPts[0].y, WU())}`, 'g_big', null, k); }
+  if (k === 'g:vol'){ const av = c.vol.reduce((a,p) => a + p.y, 0) / c.vol.length;
+    CHARTS.g_vol = {type:'line', mini:true, pts:ma4(c.vol), x0, x1:now, tip: p => `<b>${t('week_of', {d:dLong(p.x)})}</b>${wFmt(p.raw)} · Ø4 ${wFmt(p.y)}`};
+    return miniCard(t('volume'), volParts(av)[0], volParts(av)[1], `<span class="t">${t('per_week')}</span>`, 'g_vol', null, k); }
+  if (k === 'g:ses'){ const as = c.ses.reduce((a,p) => a + p.y, 0) / c.ses.length;
+    CHARTS.g_ses = {type:'line', mini:true, pts:ma4(c.ses), x0, x1:now, tip: p => `<b>${t('week_of', {d:dLong(p.x)})}</b>${t('n_sessions', {n:p.raw})} · Ø4 ${f1(p.y)}`};
+    return miniCard(t('sessions'), f1(as), '', `<span class="t">${t('per_week')}</span>`, 'g_ses', null, k); }
+  if (k === 'g:bw'){ const pts = c.bws.map(b => ({x:dnum(b.d), y:toD(b.w)})), last = toD(S.profile.bw[S.profile.bw.length-1].w);
+    CHARTS.g_bw = {type:'line', mini:true, pts, x0, x1:now, tip: p => `<b>${dLong(p.x)}</b>${f1(p.y)} ${WU()}`};
+    return miniCard(t('bodyweight'), f1(last), WU(), `<span></span>${pts.length > 1 ? `<span class="dp">${plus(pts[pts.length-1].y - pts[0].y)} ${WU()}</span>` : ''}`, 'g_bw', S.boardEdit ? null : '#profil', k); }
+  return '';
+}
+function saveBoard(keys){ const old = S.profile.board || [], extra = old.filter(k => !keys.includes(k) && !BOARD.shown.includes(k)); S.profile.board = keys.concat(extra); saveProfile(); }
+function viewStats(){
+  const name = S.profile.name;
+  const hello = `<p class="hi">${t('hello')}${name ? `, ${esc(name)}` : ''}</p>`;
+  STATS = null;
+  if (!S.loaded) return `<section>${hello}<div class="nodata">${t('loading')}</div></section>`;
+  if (!trackedIds().length) return `<section>${hello}<div class="nodata">${t('none')}</div><a class="btn pri" href="#uebungen" style="justify-self:start">${t('pick')}</a></section>`;
+  const c = STATS = statsCtx();
+  CHARTS.idx = {type:'line', pts:c.idxPts, x0:c.x0, x1:c.now, base:0, area:true, h:240, strip:c.sessStrip,
+    yfmt: v => (v > 0.049 ? '+' : '') + f0(v) + ' %', endFmt: pct, tip: p => `<b>${dLong(p.x)}</b>${pct(p.y)} ${t('vs_start')}`};
+  const all = boardDefault(c).filter(k => availKey(k, c));
+  const shown = (S.profile.board || all).filter(k => availKey(k, c));
+  BOARD = {shown, avail: all.filter(k => !shown.includes(k))};
+  const kpis = `<div class="kpis3">${[0,1,2].map(i => { const id = S.profile.kpis[i];
+    if (!id) return `<button class="kpi add" data-kpi="${i}" aria-label="${t('kpi_add')}">+</button>`;
+    const k = kpiDef(id, c); return `<button class="kpi" data-kpi="${i}"><span class="lbl">${k.l}</span><span class="kv">${k.v}${k.u ? `<small>${k.u}</small>` : ''}</span><span class="ks">${k.s}</span></button>`; }).join('')}</div>`;
+  const dur = `<b>${duration(c.now - c.first)}</b>`;
+  const sinceTxt = c.gainAll > 0.5 ? t('since_up', {d:dur, p:`<b class="c">${f0(c.gainAll)} %</b>`}) : t('since_flat', {d:dur});
+  return `
+  ${hasDemo() ? `<div class="demo"><span>${t('demo')}</span><button class="btn sm" data-act="demo-off">${S.confirm === 'demo-off' ? t('sure_rm') : t('remove')}</button></div>` : ''}
+  <section>${hello}<p class="since">${sinceTxt}</p></section>
+  <section class="hero">
+    <div class="lbl">${t('gain_lbl')} · ${c.rLbl}</div>
+    <div class="bigrow"><span class="heronum">${pct(c.gain)}</span>${c.total > 0 ? pill(c.totalDelta, WU(), true) : ''}</div>
+    ${c.top && c.top.p > 0.05 ? `<p class="nextline">${t('top_gain', {x:`<b>${esc(exName(c.top.A.ex))}</b>`, p:`<b class="up">${pct(c.top.p)}</b>`})}</p>` : ''}
+    ${kpis}
+  </section>
+  <section><div class="sh"><h2>${t('progress')}</h2>${rangeChips()}</div><div class="chart" data-chart="idx"></div></section>
+  <section><div class="sh"><h2>${t('board')}</h2><div class="chips">${S.boardEdit ? `<span class="hint">${t('drag_hint')}</span>` : ''}<button class="btn sm" data-act="board-edit">${S.boardEdit ? t('done') : t('edit')}</button></div></div>
+    <div class="mgrid" id="board">${shown.map(k => cardFor(k, c)).join('')}${BOARD.avail.length ? `<button class="mc addc" data-act="board-add" aria-label="${t('pin_add')}">+</button>` : ''}</div></section>`;
+}
+function sheetHTML(){
+  const sh = S.sheet, c = STATS; if (!sh || !c || S.view !== 'stats') return '';
+  let title, body, foot = '';
+  if (sh.type === 'kpi'){
+    title = t('pick_kpi'); const used = S.profile.kpis;
+    body = KPI_IDS.map(id => { const k = kpiDef(id, c), cur = used[sh.slot] === id, taken = !cur && used.includes(id);
+      return `<button class="opt" data-pick="${id}" aria-pressed="${cur}"${taken ? ' disabled' : ''}><span>${t('k_' + id)}</span><span class="v">${k.v}${k.u ? ' ' + k.u : ''}</span></button>`; }).join('');
+    if (used[sh.slot]) foot = `<button class="btn warn" data-act="kpi-clear">${t('kpi_clear')}</button>`;
+  } else {
+    title = t('pick_card');
+    body = BOARD.avail.length ? BOARD.avail.map(k => `<button class="opt" data-pin="${k}"><span>${esc(cardName(k))}</span><span class="v">${cardValue(k, c)}</span></button>`).join('') : `<p class="muted">${t('nothing_add')}</p>`;
+  }
+  return `<div class="sheet-bg"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="${title}"><div class="sheet-h"><h2>${title}</h2><button class="x" data-act="sheet-close" aria-label="${t('close')}">✕</button></div><div class="opts">${body}</div>${foot}</div>`;
+}
+
+/* ---------- tab 2: Übungen ---------- */
+const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/ß/g,'ss').replace(/[-_/]/g,' ');
+const lastDn = id => { const a = S.logs[id] || []; let m = -1; for (const e of a) if (e && e.d) m = Math.max(m, dnum(e.d)); return m; };
+function resultsHTML(){
+  const q = norm(S.q.trim()), toks = q.split(/\s+/).filter(Boolean);
+  let list = allEx().filter(e => !S.group || e.g === S.group);
+  if (toks.length) list = list.filter(e => { const h = norm(e.n + ' ' + e.e + ' ' + (e.a||'')); return toks.every(x => h.includes(x)); });
+  const L = new Map(list.map(e => [e.id, lastDn(e.id)]));
+  list.sort((a,b) => {
+    if (toks.length){ const sa = norm(exName(a)).startsWith(toks[0]) ? 0 : 1, sb = norm(exName(b)).startsWith(toks[0]) ? 0 : 1; if (sa !== sb) return sa - sb; }
+    return L.get(b.id) - L.get(a.id) || exName(a).localeCompare(exName(b), LOC);
+  });
+  const rows = list.map(e => {
+    const right = L.get(e.id) >= 0 ? `<span class="r">${f1(analyze(e.id).best)} ${unitOf(e)}</span>` : `<span class="r"><span class="plus" aria-hidden="true">+</span></span>`;
+    return `<a class="ri" href="#ex-${e.id}"><span class="n">${esc(exName(e))}${e.custom ? ` <span class="muted" style="font-weight:600;font-size:12.5px">· ${t('custom_tag')}</span>` : ''}</span>${right}</a>`;
+  }).join('');
+  return list.length ? `<div class="res">${rows}</div>` : '';
+}
+function createHTML(){
+  if (!S.creating) return `<button class="btn" data-act="create-open" style="justify-self:start">${t('own_ex')}</button>`;
+  return `<div class="newex">
+    <label class="field grow"><span>${t('ex_name')}</span><input type="text" id="c-n" data-keep maxlength="60" value="${esc(S.q.trim())}"></label>
+    <label class="field"><span>${t('group')}</span><select id="c-g">${GROUPS.map(g => `<option value="${g}"${g === (S.group || 'chest') ? ' selected' : ''}>${t('g_' + g)}</option>`).join('')}</select></label>
+    <label class="field"><span>${t('type')}</span><select id="c-k"><option value="w">${t('weight')}</option><option value="bw">${t('bwex')}</option></select></label>
+    <button class="btn pri" data-act="create">${t('create')}</button><button class="btn" data-act="create-cancel">${t('cancel')}</button>
+  </div>`;
+}
+function viewSearch(){
+  return `<section><h1>${t('exercises')}</h1>
+    <input type="search" id="q" data-keep placeholder="${t('search')}" value="${esc(S.q)}" autocomplete="off" aria-label="${t('search_ex')}">
+    <div class="chips" role="group" aria-label="${t('muscle')}"><button class="chip" data-group="" aria-pressed="${!S.group}">${t('all')}</button>${GROUPS.map(g => `<button class="chip" data-group="${g}" aria-pressed="${S.group === g}">${t('g_' + g)}</button>`).join('')}</div>
+    <div id="create" style="display:grid">${createHTML()}</div>
+    <div id="results" style="display:grid;gap:14px">${resultsHTML()}</div>
+  </section>`;
+}
+const setLabel = (e, ex) => {
+  if (!e) return '';
+  const w = kindOf(ex) === 'bw' ? (+e.w ? `BW${+e.w > 0 ? '+' : ''}${f1(toD(+e.w))}` : 'BW') : f1(toD(+e.w));
+  return e.t ? `1RM ${w}` : `${w} × ${e.r}${(+e.s||1) > 1 ? ` × ${e.s}` : ''}`;
+};
+function viewEx(){
+  const id = S.exId, ex = exById(id);
+  if (!ex) return `<section class="exh"><a class="back" href="#uebungen" aria-label="${t('back')}">←</a><h1>${t('notfound')}</h1></section>`;
+  const A = analyze(id), K = kindOf(ex), U = unitOf(ex), now = dnum(today()), kind = S.kind[id] || 0, has = A.best != null;
+  const x0 = has ? (S.range ? now - S.range : Math.min(A.series[0].dn, now - 30)) : now;
+  const b = has ? baseOf(A, x0) : null, dl = b ? A.best - b.v : 0, dp = b && b.v > 0 ? dl / b.v * 100 : 0;
+  const g = has ? nextGoal(A.best, K === 'bw') : null;
+  const hero = `<div class="exstat">${has ? `
+      <div class="lbl">${K === 'bw' ? t('reps_lbl') : t('e1rm_lbl')}</div>
+      <div class="e1"><span class="big">${f1(A.best)}</span><span class="u">${U}</span>${dl > 0.049 ? pill(dl, U, true) : ''}</div>
+      <p class="nextline">${b ? t('ex_gain', {p:`<b class="${dp > 0.05 ? 'up' : ''}">${pct(dp)}</b>`, d:dLong(b.dn)}) : ''}${A.bestDay ? ` · ${t('best_on', {d:dLong(A.bestDay.dn)})}` : ''}</p>
+      <div><div class="goal" role="img" aria-label="${f0(g.p * 100)} %"><i style="width:${Math.max(2, g.p * 100)}%"></i></div>
+        <div class="goalends"><span>${f1(g.prev)} ${U}</span><span>${f1(g.goal)} ${U}</span></div></div>
+      <p class="nextline">${t('goal', {g:`<b>${f1(g.goal)} ${U}</b>`, x:`<b>${f1(g.goal - A.best)} ${U}</b>`})}</p>` : ''}</div>`;
+  const form = `<form class="card" id="entry" autocomplete="off">
+    <div class="seg" role="group" aria-label="${t('kind')}"><button type="button" data-kind="0" aria-pressed="${kind === 0}">${t('set')}</button><button type="button" data-kind="1" aria-pressed="${kind === 1}">1RM</button></div>
+    <div class="fgrid">
+      <label class="field${kind === 1 ? ' full' : ''}"><span>${K === 'bw' ? '+ ' + WU() : WU()}${ex.per ? ' ' + t('per_db') : ''}</span>
+        <div class="step"><input type="text" id="f-w" data-keep inputmode="decimal" placeholder="${K === 'bw' ? '0' : isLb() ? '175' : '80'}"><button type="button" data-step="-${isLb() ? 5 : 2.5}" aria-label="${t('less', {v: f1(isLb() ? 5 : 2.5) + ' ' + WU()})}">−</button><button type="button" data-step="${isLb() ? 5 : 2.5}" aria-label="${t('more_kg', {v: f1(isLb() ? 5 : 2.5) + ' ' + WU()})}">+</button></div></label>
+      ${kind === 0 ? `<label class="field"><span>${t('Reps')}</span><input type="text" id="f-r" data-keep inputmode="numeric" placeholder="5"></label>
+      <label class="field"><span>${t('sets')}</span><input type="text" id="f-s" data-keep inputmode="numeric" placeholder="1"></label>` : ''}
+      <label class="field full"><span>${t('date')}</span><input type="date" id="f-d" data-keep max="${today()}"></label>
+    </div>
+    <div class="prev" id="f-prev"></div>
+    <button class="btn pri" type="submit">${t('log')}</button>
+  </form>`;
+
+  let body = '';
+  if (has){
+    const first = A.series[0].dn, inR = A.series.filter(d => d.dn >= x0);
+    CHARTS.e1 = {type:'line', pts: inR.map(d => ({x:d.dn, y:d.best, pr:d.pr, tested:d.tested, d})), x0, x1:now, unit:U, h:260, area:true, base: b ? b.v : null, strip: weeklyStrip(A),
+      tip: p => `<b>${dLong(p.x)}</b>${f1(p.y)} ${U}${p.pr ? ' · ' + t('record') : ''}<br>${setLabel(p.d.set, ex)}${b && b.v > 0 ? '<br>' + pct((p.y / b.v - 1) * 100) + ' ' + t('vs_start') : ''}`};
+    const top = inR.map(d => K === 'w' ? {x:d.dn, y:toD(Math.max(...d.entries.map(e => +e.w)))} : {x:d.dn, y:Math.max(...d.entries.map(e => e.t ? 1 : +e.r))});
+    CHARTS.top = {type:'line', mini:true, pts:top, x0, x1:now, tip: p => `<b>${dLong(p.x)}</b>${K === 'w' ? f1(p.y) + ' ' + WU() : p.y + ' ' + t('reps')}`};
+    const wk = []; for (let ws = weekStart(Math.max(first, x0)); ws + 6 < now; ws += 7){ let v = 0; for (const d of A.series) if (d.dn >= ws && d.dn < ws + 7) v += d.vol; wk.push({x:ws, y:v}); }
+    const vol = ma4(wk);
+    CHARTS.vol = {type:'line', mini:true, pts:vol, x0, x1:now, tip: p => `<b>${t('week_of', {d:dLong(p.x)})}</b>${wFmt(p.raw)} · Ø4 ${wFmt(p.y)}`};
+    const lastTop = top.length ? top[top.length-1].y : null, lastVol = vol.length ? vol[vol.length-1].y : 0;
+    const tr = trend(A), d30 = runningBestAt(A, now - 30), d90 = runningBestAt(A, now - 90);
+    const sv = v => v == null ? '–' : `<span class="${v > 0.049 ? 'up' : ''}">${plus(v)}</span>`;
+    const stats = [[t('d30'), sv(d30 != null ? A.best - d30 : null)], [t('d90'), sv(d90 != null ? A.best - d90 : null)], [t('trend'), sv(tr != null ? tr * 30 : null)],
+                   [t('records'), f0(A.prs.length)], [t('sessions'), f0(A.series.length)], [t('test'), A.tested != null ? f1(A.tested) : '–']];
+    let reps = '';
+    if (K === 'w'){
+      const rec = []; for (let r = 1; r <= 12; r++){ let bb = null; for (const e of A.entries){ const rr = e.t ? 1 : +e.r; if (rr === r && (!bb || +e.w > +bb.w)) bb = e; } rec.push({r, best:bb, w: bb ? toD(+bb.w) : null, proj: A.best / (r <= 1 ? 1 : 1 + r/30)}); }
+      CHARTS.reps = {type:'reps', rec};
+      reps = `<section><div class="sh"><h2>${t('rep_rec')}</h2><div class="legend"><span><span class="sw"></span>${t('achieved')}</span><span><span class="sw hollow"></span>${t('projected')}</span></div></div><div class="chart" data-chart="reps"></div></section>`;
+    }
+    body = `
+    <section><div class="sh"><h2>${K === 'bw' ? t('rep_eq') : 'e1RM'}</h2>${rangeChips()}</div><div class="chart" data-chart="e1"></div></section>
+    <section><div class="stats">${stats.map(x => `<div class="st"><span class="lbl">${x[0]}</span><span class="v">${x[1]}</span></div>`).join('')}</div></section>
+    <div class="mgrid">
+      ${miniCard(K === 'w' ? t('work') : t('reps_set'), lastTop != null ? f1(lastTop) : '–', K === 'w' ? WU() : '', `<span class="t">${t('heaviest')}</span>`, 'top')}
+      ${miniCard(t('volume'), volParts(lastVol)[0], volParts(lastVol)[1], `<span class="t">${t('avg4')}</span>`, 'vol')}
+    </div>
+    ${reps}
+    <section><h2>${t('history')}</h2>${logHTML(A, ex)}</section>`;
+  }
+  return `<section class="exh"><a class="back" href="#uebungen" aria-label="${t('back')}">←</a><h1>${esc(exName(ex))}</h1></section>
+  <section class="exhero">${hero}${form}</section>
+  ${body}
+  ${ex.custom ? `<button class="btn sm warn" data-act="del-ex" style="justify-self:start">${S.confirm === 'del-ex' ? t('del_ex_q') : t('del_ex')}</button>` : ''}`;
+}
+function logHTML(A, ex){
+  const list = A.entries.slice().reverse(), show = S.logMore ? list : list.slice(0, 10);
+  return `<div class="log">${show.map(e => `<div class="lg${S.confirm === e.i ? ' c' : ''}"><span class="dt">${dNum(dnum(e.d))}</span><span>${setLabel(e, ex)}</span><span class="e">${f1(metric(e, ex))}</span><button class="x${S.confirm === e.i ? ' c' : ''}" data-del="${esc(e.i)}" aria-label="${t('del_entry')}">${S.confirm === e.i ? t('del_q') : '✕'}</button></div>`).join('')}</div>
+  ${list.length > 10 && !S.logMore ? `<button class="btn sm" data-act="more" style="justify-self:start">${t('all_n', {n:list.length})}</button>` : ''}`;
+}
+function prefill(){
+  const arr = (S.logs[S.exId] || []).filter(e => !e.t).slice().sort((a,b) => a.d < b.d ? -1 : 1), last = arr[arr.length-1];
+  const w = $('#f-w'), r = $('#f-r'), s = $('#f-s'), d = $('#f-d');
+  if (d) d.value = today();
+  const dec = v => LI ? String(v) : String(v).replace('.', ',');
+  if (last){ if (w) w.value = dec(dispW(+last.w)); if (r) r.value = last.r; if (s) s.value = last.s || 1; }
+  else { const ex = exById(S.exId); if (w && ex && kindOf(ex) === 'bw') w.value = '0'; if (s) s.value = '1'; }
+}
+function readForm(){
+  const ex = exById(S.exId), kind = S.kind[S.exId] || 0;
+  const wv = $('#f-w') ? $('#f-w').value.trim() : '';
+  let w = fromD(num(wv)); if (kindOf(ex) === 'bw' && wv === '') w = 0;
+  const r = kind ? 1 : parseInt(($('#f-r') || {}).value, 10);
+  const s = kind ? 1 : (parseInt(($('#f-s') || {}).value || '1', 10) || 1);
+  return {ex, kind, w, r, s, d: ($('#f-d') || {}).value || today()};
+}
+function updatePreview(){
+  const el = $('#f-prev'); if (!el) return;
+  const {ex, kind, w, r, d} = readForm();
+  if (!isFinite(w) || (!kind && !(r > 0)) || (kindOf(ex) === 'w' && w <= 0)) { el.textContent = ''; return; }
+  const m = metric({w, r, t:kind, d}, ex), A = analyze(S.exId);
+  el.innerHTML = `${kindOf(ex) === 'bw' ? '≈ ' + f1(m) + ' ' + t('reps') : 'e1RM ' + f1(m)}${A.best != null && m > A.best + 1e-9 ? ` · <span class="up">${t('record')} ${pct((m / A.best - 1) * 100)}</span>` : ''}`;
+}
+
+/* ---------- tab 3: Profil ---------- */
+function viewProfile(){
+  const p = S.profile, bws = p.bw, last = bws[bws.length-1], now = dnum(today());
+  if (bws.length) CHARTS.bw = {type:'line', pts: bws.map(b => ({x:dnum(b.d), y:toD(b.w)})), x0: dnum(bws[0].d), x1: now, unit:WU(), h:190, area:true, yfmt:f0, tip: pt => `<b>${dLong(pt.x)}</b>${f1(pt.y)} ${WU()}`};
+  const bmi = last && p.height ? last.w / (p.height / 100) ** 2 : null, age = ageOf(p);
+  return `<section><h1>${t('profile')}</h1></section>
+  <section class="pgrid">
+    <label class="field span2"><span>${t('name')}</span><input type="text" id="p-name" data-pf="name" data-keep value="${esc(p.name)}" maxlength="40" autocomplete="nickname"></label>
+    ${heightField('p', p.height, 'data-pf="height" data-keep')}
+    <label class="field"><span>${t('born')}</span><input type="date" id="p-born" data-pf="born" data-keep value="${p.born || ''}" min="1920-01-01" max="${today()}"></label>
+  </section>
+  <section>
+    <h2>${t('bodyweight')}</h2>
+    <div class="kpis3">
+      <div class="kpi" style="cursor:default"><span class="lbl">${t('current')}</span><span class="kv">${last ? f1(toD(last.w)) : '–'}<small>${WU()}</small></span></div>
+      <div class="kpi" style="cursor:default"><span class="lbl">BMI</span><span class="kv">${bmi ? f1(bmi) : '–'}</span></div>
+      <div class="kpi" style="cursor:default"><span class="lbl">${t('age')}</span><span class="kv">${age != null ? age : '–'}</span></div>
+    </div>
+    <form class="bwf" id="bwform" autocomplete="off"><label class="field"><span>${t('date')}</span><input type="date" id="p-bwd" data-keep max="${today()}" min="1920-01-01" value="${today()}"></label><label class="field"><span>${t('weight_w')} ${WU()}</span><input type="text" id="p-bw" data-keep inputmode="decimal" placeholder="${last ? f1(toD(last.w)) : isLb() ? '175' : '80'}"></label><button class="btn pri" type="submit">${t('save')}</button></form>
+    ${bws.length ? `<div class="chart" data-chart="bw"></div>
+    <div class="log">${(S.bwMore ? bws.slice().reverse() : bws.slice(-5).reverse()).map(b => `<div class="lg${S.confirm === 'bw' + b.d ? ' c' : ''}"><span class="dt">${dNum(dnum(b.d))}</span><span>${f1(toD(b.w))} ${WU()}</span><span></span><button class="x${S.confirm === 'bw' + b.d ? ' c' : ''}" data-bwdel="${b.d}" aria-label="${t('del_entry')}">${S.confirm === 'bw' + b.d ? t('del_q') : '✕'}</button></div>`).join('')}</div>
+    ${bws.length > 5 && !S.bwMore ? `<button class="btn sm" data-act="bwmore" style="justify-self:start">${t('all_n', {n:bws.length})}</button>` : ''}` : ''}
+  </section>`;
+}
+
+/* ---------- Einführung (erster Start) ---------- */
+const BEAR_SVG = '<svg class="bear hero-logo" viewBox="0 0 1024 1024" aria-hidden="true"><rect class="k" width="1024" height="1024" rx="232"/><g transform="translate(512 512) scale(.86) translate(-512 -552)"><path class="b" d="M512 690C610 672 760 684 850 744C900 778 912 826 892 862C884 874 884 880 890 888C922 894 940 912 926 926C902 938 800 938 752 930C730 926 728 904 744 888C758 872 760 850 748 834C720 804 630 792 566 790C544 789 526 789 512 789ZM512 690C414 672 264 684 174 744C124 778 112 826 132 862C140 874 140 880 134 888C102 894 84 912 98 926C122 938 224 938 272 930C294 926 296 904 280 888C266 872 264 850 276 834C304 804 394 792 458 790C480 789 498 789 512 789Z"/><path class="b" d="M512 330C590 330 658 346 714 374C776 404 814 440 814 488C814 540 776 586 734 616C700 640 684 664 688 700C690 732 612 752 512 752C412 752 334 732 336 700C340 664 324 640 290 616C248 586 210 540 210 488C210 440 248 404 310 374C366 346 434 330 512 330Z"/><path class="b" d="M640 590C800 590 800 590 800 590C800 760 800 760 800 760C640 760 640 760 640 760ZM384 590C224 590 224 590 224 590C224 760 224 760 224 760C384 760 384 760 384 760Z"/><rect class="b r" x="118" y="704" width="788" height="24" rx="6" stroke-width="26" paint-order="stroke" stroke-linejoin="round"/><path class="k" d="M712 470C748 500 778 548 780 600C781 620 776 637 769.25 652C760 668 728 676 706 668C688 660 682 628 688 600C696 560 712 520 712 470ZM312 470C276 500 246 548 244 600C243 620 248 637 254.75 652C264 668 296 676 318 668C336 660 342 628 336 600C328 560 312 520 312 470Z"/><path class="b" d="M706 400C790 396 862 446 866 520C870 572 856 610 854 640C852 664 874 686 866 716C856 750 806 762 774 746C748 734 738 712 748 692C760 668 782 640 780 600C778 548 748 500 712 470ZM318 400C234 396 162 446 158 520C154 572 168 610 170 640C172 664 150 686 158 716C168 750 218 762 250 746C276 734 286 712 276 692C264 668 242 640 244 600C246 548 276 500 312 470Z"/><path class="r" d="M769.25 652C762.5 667 754 680 748 692C738 712 748 734 774 746C806 762 856 750 866 716M254.75 652C261.5 667 270 680 276 692C286 712 276 734 250 746C218 762 168 750 158 716" fill="none" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/><rect class="b r" x="880" y="684.0" width="14" height="64" rx="7.0" stroke-width="26" paint-order="stroke" stroke-linejoin="round"/><rect class="b r" x="898" y="586.0" width="50" height="260" rx="14" stroke-width="26" paint-order="stroke" stroke-linejoin="round"/><rect class="b r" x="954" y="618.0" width="34" height="196" rx="14" stroke-width="26" paint-order="stroke" stroke-linejoin="round"/><rect class="b" x="992" y="701" width="22" height="30" rx="5"/><rect class="b r" x="130" y="684.0" width="14" height="64" rx="7.0" stroke-width="26" paint-order="stroke" stroke-linejoin="round"/><rect class="b r" x="76" y="586.0" width="50" height="260" rx="14" stroke-width="26" paint-order="stroke" stroke-linejoin="round"/><rect class="b r" x="36" y="618.0" width="34" height="196" rx="14" stroke-width="26" paint-order="stroke" stroke-linejoin="round"/><rect class="b" x="10" y="701" width="22" height="30" rx="5"/><path class="b" d="M408 252C386 212 396 172 426 166C454 160 474 178 484 214ZM616 252C638 212 628 172 598 166C570 160 550 178 540 214Z"/><path class="b" d="M512 196C562 196 606 208 620 240C632 266 648 290 648 316C650 330 660 340 664 350C648 352 636 360 626 368C596 390 552 400 512 400C472 400 428 390 398 368C388 360 376 352 360 350C364 340 374 330 376 316C376 290 392 266 404 240C418 208 462 196 512 196Z"/><path class="k" d="M512 280C526 280 536 288 546 300C566 320 584 338 582 358C580 380 548 388 512 388C476 388 444 380 442 358C440 338 458 320 478 300C488 288 498 280 512 280Z"/><path class="b" d="M512 300C536 300 556 302 554 314C552 328 530 340 512 342C494 340 472 328 470 314C468 302 488 300 512 300Z"/><path class="s" d="M512 340L512 356M490 372Q512 350 534 372" fill="none" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/><path class="k" d="M476 270C432 256 432 256 432 256C432 272 448 278 458 278C470 278 476 274 476 270ZM548 270C592 256 592 256 592 256C592 272 576 278 566 278C554 278 548 274 548 270Z"/></g></svg>';
+const TAB_ICON = {
+  uebungen:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6v12M3.5 9v6M17.5 6v12M20.5 9v6M6.5 12h11"/></svg>',
+  stats:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18"/><path d="M4 16l5-6 4 3 7-8"/></svg>'
+};
+const needsIntro = () => !S.profile.onboarded && !trackedIds().length && !S.profile.name && !S.profile.bw.length && !S.profile.height && !hasDemo();
+const introChip = k => `<span class="ti">${TAB_ICON[k]}${t('tab_' + k)}</span>`;
+// Bärenstimme: tiefes, brummiges Silben-Gemurmel (Web Audio, ohne Audiodateien); respektiert den Stummschalter
+let AC = null, MASTER = null;
+function audioCtx(){
+  try {
+    if (navigator.audioSession) navigator.audioSession.type = 'ambient'; // mischt sich mit Musik, folgt dem Stummschalter
+    if (!AC){
+      const C = window.AudioContext || window.webkitAudioContext; if (!C) return null;
+      AC = new C(); const comp = AC.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 4;
+      MASTER = AC.createGain(); MASTER.gain.value = .9; MASTER.connect(comp); comp.connect(AC.destination);
+    }
+    if (AC.state === 'suspended') AC.resume();
+    return AC;
+  } catch(e) { return null; }
+}
+const VOWEL = {a:[730,1090], e:[530,1840], i:[300,2250], o:[570,840], u:[440,1020], 'ä':[660,1700], 'ö':[480,1500], 'ü':[320,1650], y:[300,2100]};
+function grunt(ch){
+  const ac = AC; if (!ac || ac.state !== 'running') return;
+  const v = VOWEL[ch.toLowerCase()] || [620, 1200];
+  const t0 = ac.currentTime + .005, dur = .07 + Math.random() * .035, f0 = 92 + Math.random() * 28;
+  const src = ac.createOscillator(); src.type = 'sawtooth';
+  src.frequency.setValueAtTime(f0 * 1.07, t0); src.frequency.exponentialRampToValueAtTime(f0 * .9, t0 + dur);
+  const sub = ac.createOscillator(); sub.type = 'triangle'; sub.frequency.setValueAtTime(f0 / 2, t0);
+  const fa = ac.createBiquadFilter(); fa.type = 'bandpass'; fa.frequency.value = v[0] * .78; fa.Q.value = 3.2;
+  const fb = ac.createBiquadFilter(); fb.type = 'bandpass'; fb.frequency.value = v[1] * .74; fb.Q.value = 5.5;
+  const gb = ac.createGain(); gb.gain.value = 1.15;
+  const gs = ac.createGain(); gs.gain.value = .07;
+  const gd = ac.createGain(); gd.gain.value = .1; // etwas direkter „Brumm“-Anteil
+  const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400; lp.Q.value = .7;
+  const env = ac.createGain(); env.gain.setValueAtTime(.0001, t0); env.gain.exponentialRampToValueAtTime(1, t0 + .014); env.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
+  src.connect(fa); src.connect(fb); src.connect(gd); fb.connect(gb); sub.connect(gs);
+  fa.connect(lp); gb.connect(lp); gs.connect(lp); gd.connect(lp); lp.connect(env); env.connect(MASTER);
+  src.start(t0); sub.start(t0); src.stop(t0 + dur + .03); sub.stop(t0 + dur + .03);
+}
+let talkT = 0;
+function talkHaptic(){ const h = NP('Haptics'); if (!h) return; const n = performance.now(); if (n - talkT < 80) return; talkT = n; try { h.impact({style:'LIGHT'}).catch(() => {}); } catch(e) {} }
+// Schreibeffekt für die Sprechblasen: Buchstabe für Buchstabe, Symbole am Stück, kurze Pausen an Satzzeichen
+let TW = null;
+function twStop(finish){ if (!TW) return; clearTimeout(TW.timer); if (finish) TW.units.forEach(u => u.classList.remove('tw')); TW = null; }
+function typewrite(el, delay){
+  twStop(true);
+  if (!el || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const units = [];
+  const walk = node => {
+    for (const ch of [...node.childNodes]){
+      if (ch.nodeType === 3){
+        const frag = document.createDocumentFragment();
+        for (const c of ch.textContent){ const sp = document.createElement('span'); sp.className = 'tw'; sp.textContent = c; frag.appendChild(sp); units.push(sp); }
+        ch.replaceWith(frag);
+      } else if (ch.nodeType === 1){ if (ch.classList.contains('ti')){ ch.classList.add('tw'); units.push(ch); } else walk(ch); }
+    }
+  };
+  walk(el);
+  let i = 0, lastG = 0;
+  const step = () => {
+    if (!TW) return;
+    if (i >= units.length){ TW = null; return; }
+    const u = units[i++], chip = u.classList.contains('ti'), c = chip ? 'o' : u.textContent;
+    u.classList.remove('tw');
+    const now = performance.now();
+    if ((chip || /[aeiouäöüy]/i.test(c)) && now - lastG > 58){ lastG = now; grunt(c); talkHaptic(); }
+    TW.timer = setTimeout(step, /[.!?]/.test(c) ? 160 : c === ',' || c === ':' ? 80 : chip ? 70 : 18);
+  };
+  TW = {units, timer: setTimeout(step, delay || 0)};
+}
+function viewIntro(){
+  const I = S.intro, p = S.profile, last = p.bw[p.bw.length - 1];
+  const dots = `<div class="dots prog" aria-hidden="true"><i></i><i></i><i></i></div>`;
+  const skip = `<button type="button" class="intro-skip" data-intro="skip">${t('in_skip')}</button>`;
+  if (I.step === 0) return `<div class="intro-in s0">
+    <div class="intro-top">${dots}<div class="seg" role="group" aria-label="${t('lang')}"><button type="button" data-lang="de" aria-pressed="${S.opt.lang === 'de'}">DE</button><button type="button" data-lang="en" aria-pressed="${S.opt.lang === 'en'}">EN</button></div></div>
+    <div class="hello"><div class="say" id="intro-h">${t('in_hi')}</div>${BEAR_SVG}</div>
+    <p class="lead">${t('in_lead')}</p>
+    <div class="intro-act"><button type="button" class="btn pri" data-intro="next">${t('in_go')}</button></div>
+  </div>`;
+  if (I.step === 1) return `<form class="intro-in" id="introform" autocomplete="off" novalidate>
+    <div class="intro-top">${dots}${skip}</div>
+    <h1 id="intro-h">${t('in_you')}</h1>
+    <p class="lead">${t('in_opt')}</p>
+    <label class="field"><span>${t('name')}</span><input type="text" id="in-name" maxlength="40" autocomplete="nickname" value="${esc(p.name)}"></label>
+    <label class="field"><span>${t('born')}</span><input type="date" id="in-born" min="1920-01-01" max="${today()}" value="${p.born || ''}"></label>
+    <div class="field"><span>${t('unit')}</span><div class="seg wide" role="group" aria-label="${t('unit')}"><button type="button" data-unit="kg" aria-pressed="${!isLb()}">kg · cm</button><button type="button" data-unit="lb" aria-pressed="${isLb()}">lb · ft</button></div></div>
+    <div class="in2">
+      <label class="field"><span>${t('bodyweight')} ${WU()}</span><input type="text" id="in-bw" inputmode="decimal" placeholder="${last ? f1(toD(last.w)) : isLb() ? '175' : '80'}"></label>
+      ${heightField('in', p.height, '')}
+    </div>
+    <div class="intro-act"><button type="submit" class="btn pri">${t('in_next')}</button></div>
+  </form>`;
+  const hey = p.name ? t('in_hey_n', {n: '<b>' + esc(p.name) + '</b>'}) : t('in_hey');
+  const tips = [t('in_tip1', {hey, ex: introChip('uebungen')}), t('in_tip2', {st: introChip('stats')}), t('in_tip3', {st: introChip('stats')})];
+  const lastTip = I.tip === tips.length - 1, head = (document.querySelector('.brand .logo') || {}).innerHTML || '';
+  return `<div class="intro-in">
+    <div class="intro-top">${dots}${lastTip ? '' : skip}</div>
+    <div class="coach"><span class="logo av" aria-hidden="true">${head}</span><div class="bubble" id="intro-h" aria-live="polite">${tips[I.tip]}</div></div>
+    <div class="dots tips" style="justify-content:center" aria-hidden="true">${tips.map(() => '<i></i>').join('')}</div>
+    <div class="intro-act">${lastTip
+      ? `<button type="button" class="btn pri" data-intro="first">${t('in_first')}</button><button type="button" class="btn" data-intro="stats">${t('in_tostats')}</button>`
+      : `<button type="button" class="btn pri" data-intro="tip">${t('in_next')}</button>`}</div>
+  </div>`;
+}
+let introBusy = false, introPrev = null;
+function renderIntro(){
+  const box = $('#intro'); if (!box) return;
+  if (!S.intro){
+    twStop(false);
+    if (box.innerHTML && !box.classList.contains('bye')){ box.classList.add('bye'); setTimeout(() => { if (!S.intro){ box.innerHTML = ''; box.className = ''; box.removeAttribute('role'); box.dataset.key = ''; introPrev = null; } }, 230); }
+    return;
+  }
+  const key = S.intro.step + ':' + S.intro.tip + ':' + LI + ':' + S.opt.unit;
+  if (box.dataset.key === key && box.innerHTML && !box.classList.contains('bye')) return;
+  const prev = introPrev, cur = {step: S.intro.step, tip: S.intro.tip}; introPrev = cur;
+  const moved = !!(prev && box.innerHTML && !box.classList.contains('bye') && (prev.step !== cur.step || prev.tip !== cur.tip));
+  const sameStep = moved && prev.step === cur.step;
+  const swap = () => {
+    twStop(false);
+    const keep = {}; box.querySelectorAll('input').forEach(i => { keep[i.id] = i.value; });
+    box.dataset.key = key; box.className = 'intro'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'intro-h');
+    box.innerHTML = viewIntro();
+    const inner = box.querySelector('.intro-in');
+    if (inner) inner.classList.add(!prev ? 'enter-first' : moved ? (sameStep ? 'enter-tip' : 'enter') : 'still');
+    for (const id in keep){ const el = document.getElementById(id); if (el) el.value = keep[id]; }
+    // Fortschrittspunkte gleiten vom alten zum neuen Schritt
+    const glide = (sel, from, to) => {
+      const ds = [...box.querySelectorAll(sel + ' i')]; ds.forEach((d, i) => d.classList.toggle('on', i === from));
+      if (from !== to) requestAnimationFrame(() => requestAnimationFrame(() => ds.forEach((d, i) => d.classList.toggle('on', i === to))));
+    };
+    glide('.dots.prog', prev ? prev.step : cur.step, cur.step);
+    if (cur.step === 2) glide('.dots.tips', prev && prev.step === 2 ? prev.tip : cur.tip, cur.tip);
+    if (moved) box.scrollTop = 0;
+    introBusy = false;
+    // Der Bär „spricht“: Begrüßung und Tipps erscheinen Buchstabe für Buchstabe
+    if (cur.step === 0 && (!prev || moved)) typewrite(box.querySelector('.say'), 560);
+    if (cur.step === 2 && (!prev || moved)) typewrite(box.querySelector('.bubble'), sameStep ? 200 : 300);
+  };
+  if (moved){ introBusy = true; const old = box.querySelector('.intro-in'); if (old) old.classList.add(sameStep ? 'leave-tip' : 'leave'); setTimeout(swap, 170); }
+  else swap();
+}
+function introSave(){
+  const name = ($('#in-name').value || '').trim().slice(0, 40), bwRaw = $('#in-bw').value.trim(), h = hRead('in');
+  const w = bwRaw ? bwToKg(num(bwRaw)) : null;
+  if (bwRaw && w == null){ toast(bwRange()); $('#in-bw').focus(); return; }
+  if (h === null){ toast(hRange()); const f = $('#in-h') || $('#in-hft'); if (f) f.focus(); return; }
+  const born = ($('#in-born') || {}).value || '';
+  if (born && (!/^\d{4}-\d{2}-\d{2}$/.test(born) || born < '1920-01-01' || born > today())){ toast(t('t_date')); $('#in-born').focus(); return; }
+  S.profile.name = name;
+  if (born){ S.profile.born = born; S.profile.by = null; }
+  if (h !== '') S.profile.height = h;
+  if (w != null){ const d = today(); S.profile.bw = S.profile.bw.filter(b => b.d !== d).concat([{d, w}]).sort((a,b) => a.d < b.d ? -1 : 1); }
+  saveProfile(); S.intro = {step:2, tip:0}; haptic('tap'); render();
+}
+function introDone(dest){
+  S.profile.onboarded = true; saveProfile(); S.intro = null; haptic('tap');
+  if (dest && location.hash !== '#' + dest) location.hash = dest; else render();
+}
+
+/* ---------- tab 4: Optionen ---------- */
+function viewOptions(){
+  const o = S.opt, dk = isDark(), ids = trackedIds();
+  let preview = '';
+  if (ids.length){
+    const now = dnum(today()), A = analyze(ids.slice().sort((a,b) => lastDn(b) - lastDn(a))[0]);
+    preview = `<section><h2>${t('preview')}</h2><div class="mgrid">${exCard(A, S.range ? now - S.range : A.series[0].dn, now)}</div></section>`;
+  }
+  return `<section><h1>${t('settings')}</h1></section>
+  <section><h2>${t('lang')}</h2>
+    <div class="seg wide" role="group" aria-label="${t('lang')}"><button type="button" data-lang="de" aria-pressed="${o.lang === 'de'}">Deutsch</button><button type="button" data-lang="en" aria-pressed="${o.lang === 'en'}">English</button></div></section>
+  <section><h2>${t('unit')}</h2>
+    <div class="seg wide" role="group" aria-label="${t('unit')}"><button type="button" data-unit="kg" aria-pressed="${!isLb()}">kg · cm</button><button type="button" data-unit="lb" aria-pressed="${isLb()}">lb · ft</button></div></section>
+  <section><h2>${t('mode')}</h2>
+    <div class="seg wide" role="group" aria-label="${t('mode')}">${['system','light','dark'].map(k => `<button type="button" data-mode="${k}" aria-pressed="${o.mode === k}">${t('m_' + k)}</button>`).join('')}</div></section>
+  <section><h2>${t('color')}</h2>
+    <div class="swatches" role="group" aria-label="${t('color')}">${Object.entries(PALETTE).map(([k,p]) => { const col = dk ? p.d : p.l; return `<button type="button" class="swatch" data-color="${k}" aria-pressed="${o.color === k}"><i style="background:${col};box-shadow:${dk ? `0 0 10px ${col}` : 'none'}"></i>${t('p_' + k)}</button>`; }).join('')}</div></section>
+  ${preview}
+  ${NP('LocalNotifications') ? `<section><h2>${t('remind')}</h2>
+    <div class="seg wide" role="group" aria-label="${t('remind')}">${[0,2,3,5,7].map(n => `<button type="button" data-remind="${n}" aria-pressed="${(S.profile.remind || 0) === n}">${n ? n : t('r_off')}</button>`).join('')}</div>
+    <p class="foot">${t('remind_h')}</p></section>` : ''}
+  <section><h2>${t('data')}</h2>
+    <div class="chips">
+      <button class="btn sm" data-act="export">${t('export')}</button>
+      <button class="btn sm" data-act="show-import">${t('import')}</button>
+      ${hasDemo() ? `<button class="btn sm" data-act="demo-off">${S.confirm === 'demo-off' ? t('sure_rm') : t('demo_rm')}</button>` : ''}
+      <button class="btn sm warn" data-act="wipe">${S.confirm === 'wipe' ? t('wipe_q') : t('wipe')}</button>
+    </div>
+    <textarea id="exp" readonly hidden aria-label="${t('export')}"></textarea>
+    ${S.showImport ? `<textarea id="imp" data-keep placeholder="${t('paste')}" aria-label="${t('import')}"></textarea><div class="chips"><label class="btn sm">${t('pick_file')}<input type="file" id="imp-file" accept="application/json,.json,text/plain" hidden></label><button class="btn sm" data-act="import">${S.confirm === 'import' ? t('import_q') : t('do_import')}</button></div>` : ''}
+    <p class="foot">${S.mode === 'native' ? t('f_dev') : t('f_local')} · ${t('f_epley')}</p>
+    <div><button class="btn sm" data-intro="replay">${t('intro_again')}</button></div>
+    ${S.mode === 'native' ? `<details class="priv"><summary>${t('privacy')}</summary><p class="foot">${t('privacy_t')}</p><p class="foot"><a href="${PRIVACY_URL}" target="_blank" rel="noopener">${t('privacy_full')}</a></p></details>` : ''}
+  </section>`;
+}
+function setOpt(patch){
+  S.opt = Object.assign({}, S.opt, patch);
+  try { localStorage.setItem('satzbuch-opt', JSON.stringify(S.opt)); } catch(e) {}
+  S.profile.opt = Object.assign({}, S.opt); saveProfile();
+  applyTheme(); render();
+}
+
+/* ---------- charts ---------- */
+function drawCharts(){ document.querySelectorAll('[data-chart]').forEach(el => { const c = CHARTS[el.dataset.chart]; if (!c) return; try { DRAW[c.type](el, c); } catch(e) { console.error(e); el.innerHTML = `<div class="nodata">${t('charterr')}</div>`; } }); }
+let rsz; window.addEventListener('resize', () => { clearTimeout(rsz); rsz = setTimeout(drawCharts, 120); });
+function nice(min, max, count){
+  if (max - min < 1e-9) max = min + 1;
+  const raw = (max - min) / count; let st = Math.pow(10, Math.floor(Math.log10(raw))); const e = raw / st;
+  st *= e >= 7.5 ? 10 : e >= 3.5 ? 5 : e >= 1.5 ? 2 : 1;
+  const lo = Math.floor(min / st) * st, hi = Math.ceil(max / st) * st, ticks = [];
+  for (let v = lo; v <= hi + st/2; v += st) ticks.push(+v.toFixed(6));
+  return {lo, hi, ticks};
+}
+function tipLayer(el){ let x = el.querySelector('.tip'); if (!x){ x = document.createElement('div'); x.className = 'tip'; el.appendChild(x); } return x; }
+function placeTip(el, tp, x, y, html){
+  tp.innerHTML = html; tp.style.opacity = 1;
+  const W = el.clientWidth, w = tp.offsetWidth, h = tp.offsetHeight;
+  tp.style.left = Math.max(0, Math.min(W - w, x - w/2)) + 'px';
+  let top = y - h - 12; if (top < -8) top = y + 14; tp.style.top = top + 'px';
+}
+const DRAW = {
+  line(el, c){
+    const pts = c.pts, mini = !!c.mini;
+    const W = Math.max(mini ? 140 : 260, el.clientWidth), H = c.h || (mini ? 84 : 240);
+    if (!pts.length){ el.innerHTML = `<div class="nodata${mini ? ' mini' : ''}">${t('nodata')}</div>`; return; }
+    const ring = mini ? 'var(--surface)' : 'var(--bg)', sH = c.strip ? (mini ? 4 : 10) : 0, hasBase = c.base != null;
+    const m = mini ? {t:6, r:4, b:c.strip ? sH + 6 : 5, l:4} : {t:12, r:hasBase ? 50 : 18, b:26 + (c.strip ? sH + 8 : 0), l:46};
+    let x0 = c.x0, x1 = c.x1; if (x1 - x0 < 14) x0 = x1 - 14;
+    const ys = pts.map(p => p.y).concat(hasBase ? [c.base] : []), dmin = Math.min(...ys), dmax = Math.max(...ys);
+    let ymin = dmin, ymax = dmax;
+    const sp = (ymax - ymin) || Math.max(1, Math.abs(ymax) * .1);
+    ymin -= sp * (mini ? .14 : .1); ymax += sp * (mini ? .14 : .08);
+    if (ymin < 0 && dmin >= 0) ymin = 0;
+    let lo = ymin, hi = ymax, ticks = [];
+    if (!mini){ const nt = nice(ymin, ymax, 4); lo = nt.lo; hi = nt.hi; ticks = nt.ticks; }
+    const pw = W - m.l - m.r, ph = H - m.t - m.b, pb = m.t + ph;
+    const X = d => m.l + (d - x0) / (x1 - x0) * pw, Y = v => m.t + (1 - (v - lo) / (hi - lo)) * ph;
+    let g = '';
+    if (!mini){
+      const yf = c.yfmt || f0;
+      ticks.forEach(v => { g += `<line x1="${m.l}" x2="${m.l + pw}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--grid)"/><text x="${m.l - 8}" y="${Y(v) + 4}" text-anchor="end">${yf(v)}</text>`; });
+      g += `<line x1="${m.l}" x2="${m.l + pw}" y1="${pb}" y2="${pb}" stroke="var(--line)"/>`;
+      const span = x1 - x0, xt = [];
+      if (span > 75){ const d = new Date(x0 * DAY); let y = d.getUTCFullYear(), mo = d.getUTCMonth() + 1; for (;;){ if (mo > 11){ mo = 0; y++; } const n = Date.UTC(y, mo, 1) / DAY; if (n > x1) break; xt.push({x:n, l: mo === 0 ? String(y) : mShort(n)}); mo++; } }
+      else for (let n = weekStart(x0) + 7; n <= x1; n += 7){ const dd = new Date(n * DAY); xt.push({x:n, l: LI ? (dd.getUTCMonth() + 1) + '/' + dd.getUTCDate() : dd.getUTCDate() + '.' + (dd.getUTCMonth() + 1) + '.'}); }
+      const every = Math.max(1, Math.ceil(xt.length / Math.max(2, Math.floor(pw / 52))));
+      xt.forEach((tk, i) => { if (i % every) return; g += `<text x="${X(tk.x)}" y="${H - 6}" text-anchor="middle">${tk.l}</text>`; });
+    }
+    // Startlinie: Vergleich mit dir selbst
+    if (hasBase && c.base > lo && c.base < hi){
+      g += `<line x1="${m.l}" x2="${m.l + pw}" y1="${Y(c.base)}" y2="${Y(c.base)}" stroke="var(--muted)" stroke-opacity=".7" stroke-width="1.25" stroke-dasharray="4 4"/>`;
+      if (!mini) g += `<text class="bt" x="${m.l + pw + 8}" y="${Y(c.base) + 4}">${t('start')}</text>`;
+    }
+    const P = pts.map(p => [X(p.x), Y(p.y)]);
+    const path = P.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join('');
+    if ((c.area || mini) && P.length > 1) g += `<path d="${path}L${P[P.length-1][0].toFixed(1)},${pb}L${P[0][0].toFixed(1)},${pb}Z" fill="url(#sb-area)"/>`;
+    g += `<path d="${path}" fill="none" style="stroke:var(--c);stroke-opacity:var(--glow)" stroke-width="${mini ? 4 : 6}" stroke-linejoin="round" stroke-linecap="round" filter="url(#sb-glow${mini ? '-s' : ''})"/>`;
+    g += `<path d="${path}" fill="none" style="stroke:var(--c)" stroke-width="${mini ? 2 : 2.25}" stroke-linejoin="round" stroke-linecap="round"/>`;
+    if (!mini){
+      const r = pts.length > 70 ? 2 : 2.75;
+      pts.forEach((p, i) => { const [x, y] = P[i];
+        if (p.tested) g += `<circle cx="${x}" cy="${y}" r="5" fill="${ring}" style="stroke:var(--c)" stroke-width="2"/>`;
+        else if (p.pr) g += `<circle cx="${x}" cy="${y}" r="${r + 1.5}" style="fill:var(--c)" stroke="${ring}" stroke-width="2"/><circle cx="${x}" cy="${y}" r="${r + 3.8}" fill="none" style="stroke:var(--c)" stroke-opacity=".7" stroke-width="1.25"/>`;
+        else g += `<circle cx="${x}" cy="${y}" r="${r}" style="fill:var(--c)" stroke="${ring}" stroke-width="1.25"/>`; });
+      const L = P[P.length-1], lv = pts[pts.length-1].y;
+      g += `<text class="vl" x="${L[0] - 8}" y="${Math.max(12, L[1] - 12)}" text-anchor="end">${c.endFmt ? c.endFmt(lv) : f1(lv) + (c.unit ? ' ' + c.unit : '')}</text>`;
+    } else { const L = P[P.length-1]; g += `<circle cx="${L[0]}" cy="${L[1]}" r="3.25" style="fill:var(--c)" stroke="${ring}" stroke-width="1.5"/>`; }
+    // LED-Leiste: Trainingswochen (je heller, desto mehr Einheiten)
+    if (c.strip){
+      const sy = mini ? H - sH : pb + 7, cw = mini ? 3 : 4, gap = mini ? 1.25 : 1.75;
+      for (let x = m.l; x + cw <= m.l + pw + .01; x += cw + gap){
+        const a = c.strip(x0 + (x + cw / 2 - m.l) / pw * (x1 - x0));
+        g += `<rect x="${x.toFixed(1)}" y="${sy}" width="${cw}" height="${sH}" rx="1" style="${a ? `fill:var(--c);fill-opacity:${a.toFixed(2)}` : 'fill:var(--grid)'}"/>`;
+      }
+    }
+    if (c.tip) g += `<line class="xh" x1="0" x2="0" y1="${m.t}" y2="${pb}" stroke="var(--ink)" stroke-opacity=".3" visibility="hidden"/><circle class="hc" r="5" style="fill:var(--c)" stroke="${ring}" stroke-width="2" visibility="hidden"/>`;
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="${t('linechart')}, ${pts.length}">${g}</svg>`;
+    if (!c.tip) return;
+    const svg = el.querySelector('svg'), xh = svg.querySelector('.xh'), hc = svg.querySelector('.hc'), tp = tipLayer(el);
+    const move = ev => {
+      const b = svg.getBoundingClientRect(), mx = (ev.clientX - b.left) * (W / b.width);
+      let bi = 0, bd = Infinity; P.forEach((p, i) => { const d = Math.abs(p[0] - mx); if (d < bd) { bd = d; bi = i; } });
+      const [x, y] = P[bi];
+      xh.setAttribute('x1', x); xh.setAttribute('x2', x); xh.setAttribute('visibility', 'visible'); hc.setAttribute('cx', x); hc.setAttribute('cy', y); hc.setAttribute('visibility', 'visible');
+      placeTip(el, tp, x * b.width / W, y * b.height / H, c.tip(pts[bi]));
+    };
+    svg.addEventListener('pointermove', move); svg.addEventListener('pointerdown', move);
+    svg.addEventListener('pointerleave', () => { xh.setAttribute('visibility', 'hidden'); hc.setAttribute('visibility', 'hidden'); tp.style.opacity = 0; });
+  },
+  reps(el, c){
+    const rec = c.rec, W = Math.max(260, el.clientWidth), H = 210, m = {t:14, r:12, b:26, l:44};
+    const vals = rec.flatMap(r => [r.proj, r.best ? r.w : null]).filter(v => v != null);
+    const nt = nice(Math.min(...vals) * .9, Math.max(...vals) * 1.04, 4);
+    const pw = W - m.l - m.r, ph = H - m.t - m.b, step = pw / 12;
+    const X = r => m.l + step * (r - 1) + step / 2, Y = v => m.t + (1 - (v - nt.lo) / (nt.hi - nt.lo)) * ph;
+    let g = '';
+    nt.ticks.forEach(v => { g += `<line x1="${m.l}" x2="${m.l + pw}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--grid)"/><text x="${m.l - 8}" y="${Y(v) + 4}" text-anchor="end">${f0(v)}</text>`; });
+    g += `<line x1="${m.l}" x2="${m.l + pw}" y1="${m.t + ph}" y2="${m.t + ph}" stroke="var(--line)"/>`;
+    g += `<path d="${rec.map((r, i) => (i ? 'L' : 'M') + X(r.r).toFixed(1) + ',' + Y(r.proj).toFixed(1)).join('')}" fill="none" stroke="var(--muted)" stroke-width="1.25" stroke-dasharray="3 3"/>`;
+    let seg = '', pen = false;
+    rec.forEach(r => { if (r.best){ seg += (pen ? 'L' : 'M') + X(r.r).toFixed(1) + ',' + Y(r.w).toFixed(1); pen = true; } else pen = false; });
+    if (seg) g += `<path d="${seg}" fill="none" style="stroke:var(--c);stroke-opacity:var(--glow)" stroke-width="6" stroke-linecap="round" filter="url(#sb-glow)"/><path d="${seg}" fill="none" style="stroke:var(--c)" stroke-width="2.25" stroke-linejoin="round" stroke-linecap="round"/>`;
+    rec.forEach(r => {
+      g += `<text x="${X(r.r)}" y="${H - 6}" text-anchor="middle">${r.r}</text>`;
+      g += `<circle cx="${X(r.r)}" cy="${Y(r.proj)}" r="3.5" fill="var(--bg)" stroke="var(--muted)" stroke-width="1.5"/>`;
+      if (r.best) g += `<circle cx="${X(r.r)}" cy="${Y(r.w)}" r="4.25" style="fill:var(--c)" stroke="var(--bg)" stroke-width="2"/>`;
+      g += `<rect class="hb" data-r="${r.r}" x="${m.l + step * (r.r - 1)}" y="${m.t}" width="${step}" height="${ph}" fill="transparent"/>`;
+    });
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="${t('rep_rec')}">${g}</svg>`;
+    const svg = el.querySelector('svg'), tp = tipLayer(el);
+    const show = ev => { const h = ev.target.closest('.hb'); if (!h) return; const r = rec[+h.dataset.r - 1], bb = svg.getBoundingClientRect();
+      placeTip(el, tp, X(r.r) * bb.width / W, Y(Math.max(r.proj, r.best ? r.w : 0)) * bb.height / H, `<b>${r.r} ${t('reps')}</b>${r.best ? `${f1(r.w)} ${WU()} · ${dNum(dnum(r.best.d))}` : t('no_set')}<br>${t('projected')} ${f1(r.proj)} kg`); };
+    svg.addEventListener('pointermove', show); svg.addEventListener('pointerdown', show); svg.addEventListener('pointerleave', () => tp.style.opacity = 0);
+  }
+};
+
+/* ---------- events ---------- */
+document.addEventListener('click', ev => {
+  if (ev.target.classList && ev.target.classList.contains('sheet-bg')){ S.sheet = null; render(); return; }
+  if (ev.target.closest && ev.target.closest('label')) return;
+  if (TW && ev.target.closest && ev.target.closest('.bubble, .say')){ twStop(true); return; }
+  const el = ev.target.closest('button, a');
+  if (!el){ if (S.confirm){ S.confirm = null; render(); } return; }
+  const d = el.dataset;
+  if (d.intro){
+    ev.preventDefault(); if (introBusy) return; audioCtx();
+    if (TW && (d.intro === 'tip' || d.intro === 'first' || d.intro === 'stats')){ twStop(true); return; }
+    if (d.intro === 'next' || d.intro === 'tip') haptic('tap');
+    if (d.intro === 'next') S.intro = {step:1, tip:0};
+    else if (d.intro === 'tip') S.intro = {step:2, tip:S.intro.tip + 1};
+    else if (d.intro === 'replay') S.intro = {step:0, tip:0};
+    else if (d.intro === 'skip' || d.intro === 'stats') return introDone('stats');
+    else if (d.intro === 'first') return introDone('uebungen');
+    render(); return;
+  }
+  if (d.mode){ setOpt({mode: d.mode}); return; }
+  if (d.color){ setOpt({color: d.color}); return; }
+  if (d.lang){ setOpt({lang: d.lang}); return; }
+  if (d.unit){ setOpt({unit: d.unit}); return; }
+  if (d.remind !== undefined){ setRemind(+d.remind); return; }
+  if (d.kpi !== undefined){ S.sheet = {type:'kpi', slot:+d.kpi}; render(); return; }
+  if (d.pick){ const k = S.profile.kpis.slice(); k[S.sheet.slot] = d.pick; S.profile.kpis = k; S.sheet = null; saveProfile(); render(); return; }
+  if (d.pin){ saveBoard(BOARD.shown.concat([d.pin])); S.sheet = null; render(); return; }
+  if (d.rm){ saveBoard(BOARD.shown.filter(k => k !== d.rm)); render(); return; }
+  if (d.group !== undefined){ S.group = d.group; document.querySelectorAll('[data-group]').forEach(b => b.setAttribute('aria-pressed', b.dataset.group === S.group)); $('#results').innerHTML = resultsHTML(); return; }
+  if (d.kind !== undefined){
+    S.kind[S.exId] = +d.kind; const keepW = ($('#f-w') || {}).value; render();
+    if ($('#f-w') && keepW != null) $('#f-w').value = keepW;
+    if (+d.kind === 0 && $('#f-r') && !$('#f-r').value){ const arr = (S.logs[S.exId] || []).filter(e => !e.t), last = arr[arr.length-1]; $('#f-r').value = last ? last.r : ''; $('#f-s').value = last ? (last.s || 1) : 1; }
+    updatePreview(); return;
+  }
+  if (d.step){ const f = $('#f-w'), cur = num(f.value) || 0, nv = Math.max(kindOf(exById(S.exId)) === 'bw' ? -200 : 0, Math.round((cur + +d.step) * 4) / 4); f.value = LI ? String(nv) : String(nv).replace('.', ','); updatePreview(); return; }
+  if (d.range !== undefined){ S.range = +d.range; try { localStorage.setItem('satzbuch-range', S.range); } catch(e) {} render(); return; }
+  if (d.del){ if (S.confirm !== d.del){ S.confirm = d.del; render(); return; } const id = S.exId; S.logs[id] = (S.logs[id] || []).filter(e => e.i !== d.del); S.confirm = null; saveLog(id); render(); toast(t('t_removed')); return; }
+  if (d.bwdel){ const k = 'bw' + d.bwdel; if (S.confirm !== k){ S.confirm = k; render(); return; } S.profile.bw = S.profile.bw.filter(b => b.d !== d.bwdel); S.confirm = null; saveProfile(); render(); return; }
+  const act = d.act;
+  if (!act){ if (S.confirm && el.tagName === 'BUTTON') S.confirm = null; return; }
+  ev.preventDefault();
+  if (act === 'more'){ S.logMore = true; render(); return; }
+  if (act === 'bwmore'){ S.bwMore = true; render(); return; }
+  if (act === 'board-edit'){ S.boardEdit = !S.boardEdit; render(); return; }
+  if (act === 'board-add'){ S.sheet = {type:'board'}; render(); return; }
+  if (act === 'sheet-close'){ S.sheet = null; render(); return; }
+  if (act === 'kpi-clear'){ const k = S.profile.kpis.slice(); k[S.sheet.slot] = null; S.profile.kpis = k; S.sheet = null; saveProfile(); render(); return; }
+  if (act === 'show-import'){ S.showImport = !S.showImport; render(); return; }
+  if (act === 'create-open'){ S.creating = true; $('#create').innerHTML = createHTML(); const n = $('#c-n'); if (n) n.focus(); return; }
+  if (act === 'create-cancel'){ S.creating = false; $('#create').innerHTML = createHTML(); return; }
+  if (act === 'create'){
+    const n = ($('#c-n').value || '').trim().slice(0, 60); if (!n){ toast(t('t_name')); $('#c-n').focus(); return; }
+    const slug = norm(n).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'uebung';
+    const id = 'c-' + slug + '-' + Math.random().toString(36).slice(2, 6);
+    S.profile.custom = (S.profile.custom || []).concat([{id, n, g: $('#c-g').value, k: $('#c-k').value}]);
+    saveProfile(); S.q = ''; S.creating = false; location.hash = 'ex-' + id; toast(t('t_created')); return;
+  }
+  if (act === 'del-ex'){
+    if (S.confirm !== 'del-ex'){ S.confirm = 'del-ex'; render(); return; }
+    const id = S.exId; S.profile.custom = S.profile.custom.filter(c => c.id !== id); if (S.profile.board) S.profile.board = S.profile.board.filter(k => k !== 'ex:' + id); delete S.logs[id]; S.confirm = null; saveLog(id); saveProfile(); location.hash = 'uebungen'; toast(t('t_deleted')); return;
+  }
+  if (act === 'demo-off'){
+    if (S.confirm !== 'demo-off'){ S.confirm = 'demo-off'; render(); return; }
+    S.confirm = null;
+    for (const id of Object.keys(S.logs)){ const before = S.logs[id].length; S.logs[id] = S.logs[id].filter(e => !isDemo(e)); if (S.logs[id].length !== before) saveLog(id); }
+    S.profile.bw = S.profile.bw.filter(b => !b.x); S.profile.demo = false; saveProfile(); render(); toast(t('t_demo')); return;
+  }
+  if (act === 'wipe'){
+    if (S.confirm !== 'wipe'){ S.confirm = 'wipe'; render(); return; }
+    S.confirm = null; for (const id of Object.keys(S.logs)){ S.logs[id] = []; saveLog(id); }
+    const p = S.profile; S.logs = {}; S.profile = normProfile({name: p.name, height: p.height, born: p.born, by: p.by, opt: p.opt, kpis: p.kpis, custom: p.custom}); saveProfile(); render(); toast(t('t_deleted')); return;
+  }
+  if (act === 'export'){
+    const json = JSON.stringify({v:1, profile:S.profile, logs:S.logs}), ta = $('#exp');
+    if (NP('Filesystem') && NP('Share')){
+      NP('Filesystem').writeFile({path:'liftfolio-' + today() + '.json', directory:'CACHE', data:json, encoding:'utf8'})
+        .then(r => NP('Share').share({title:'Liftfolio Export', files:[r.uri]}))
+        .catch(e => { if (!/cancel/i.test(String(e && (e.message || e)))) { ta.value = json; ta.hidden = false; ta.focus(); ta.select(); toast(t('t_select')); } });
+      return;
+    }
+    ta.value = json; ta.hidden = false;
+    const fallback = () => { ta.focus(); ta.select(); toast(t('t_select')); };
+    try { navigator.clipboard.writeText(json).then(() => toast(t('t_copied')), fallback); } catch(e) { fallback(); }
+    return;
+  }
+  if (act === 'import'){
+    let data; try { data = JSON.parse($('#imp').value); } catch(e) { toast(t('t_json')); return; }
+    if (!data || typeof data.logs !== 'object'){ toast(t('t_format')); return; }
+    if (S.confirm !== 'import'){ S.confirm = 'import'; render(); return; }
+    S.confirm = null; const old = Object.keys(S.logs); S.logs = {};
+    for (const [k, v] of Object.entries(data.logs)) if (Array.isArray(v) && /^[A-Za-z0-9-]+$/.test(k)) S.logs[k] = v.filter(e => e && e.d && isFinite(+e.w)).map(e => ({i: String(e.i || uid()), d: String(e.d).slice(0, 10), w: +e.w, r: +e.r || 1, s: +e.s || 1, t: e.t ? 1 : 0}));
+    for (const id of new Set(old.concat(Object.keys(S.logs)))) saveLog(id);
+    adoptProfile(data.profile); saveProfile(); S.showImport = false; render(); toast(t('t_imported')); scheduleRemind(); return;
+  }
+});
+document.addEventListener('input', ev => {
+  const el = ev.target;
+  if (el.id === 'q'){ S.q = el.value; $('#results').innerHTML = resultsHTML(); return; }
+  if (el.id && el.id.startsWith('f-')) updatePreview();
+});
+document.addEventListener('change', ev => {
+  if (ev.target.id === 'imp-file'){
+    const file = ev.target.files && ev.target.files[0]; if (!file) return;
+    const rd = new FileReader();
+    rd.onload = () => { const ta = $('#imp'); if (ta) { ta.value = String(rd.result || ''); S.confirm = null; toast(t('t_file')); } };
+    rd.readAsText(file); return;
+  }
+  const el = ev.target, f = el.dataset && el.dataset.pf; if (!f) return;
+  const v = el.value.trim();
+  if (f === 'name') S.profile.name = v.slice(0, 40);
+  if (f === 'height'){ const cm = hRead('p'); if (cm === '') S.profile.height = null; else if (cm != null) S.profile.height = cm; else { toast(hRange()); return; } }
+  if (f === 'born'){ if (v === '') S.profile.born = null; else if (/^\d{4}-\d{2}-\d{2}$/.test(v) && v >= '1920-01-01' && v <= today()) { S.profile.born = v; S.profile.by = null; } else { toast(t('t_date')); return; } }
+  saveProfile(); render();
+});
+document.addEventListener('submit', ev => {
+  ev.preventDefault();
+  if (ev.target.id === 'introform'){ introSave(); return; }
+  if (ev.target.id === 'entry'){
+    const {ex, kind, w, r, s, d} = readForm(), id = S.exId;
+    if (!isFinite(w) || (kindOf(ex) === 'w' && w <= 0)){ toast(t('t_w')); $('#f-w').focus(); return; }
+    if (!kind && !(r >= 1 && r <= 100)){ toast(t('t_r')); $('#f-r').focus(); return; }
+    if (!(s >= 1 && s <= 30)){ toast(t('t_s')); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)){ toast(t('t_d')); return; }
+    const A = analyze(id), prev = A.best, wasNew = !(S.logs[id] || []).length;
+    const e = {i: uid(), d, w: Math.round(w * 100) / 100, r: kind ? 1 : r, s: kind ? 1 : s, t: kind ? 1 : 0}, m = metric(e, ex);
+    S.logs[id] = (S.logs[id] || []).concat([e]); saveLog(id);
+    if (wasNew && S.profile.board && !S.profile.board.includes('ex:' + id)){ S.profile.board = S.profile.board.concat(['ex:' + id]); saveProfile(); }
+    let msg = t('t_logged'), pr = false;
+    if (prev != null && m > prev + 1e-9){
+      const g = nextGoal(prev, kindOf(ex) === 'bw'); pr = true;
+      msg = m >= g.goal - 1e-9 ? t('t_goal', {v: f1(g.goal) + ' ' + unitOf(ex)}) : t('t_pr', {v: f1(m) + ' ' + unitOf(ex)});
+    }
+    render(); toast(msg); haptic(pr ? 'pr' : 'tap'); scheduleRemind(); return;
+  }
+  if (ev.target.id === 'bwform'){
+    const w = bwToKg(num($('#p-bw').value)), d = ($('#p-bwd') || {}).value || today();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d > today() || d < '1920-01-01'){ toast(t('t_date')); return; }
+    if (w == null){ toast(bwRange()); return; }
+    S.profile.bw = S.profile.bw.filter(b => b.d !== d).concat([{d, w}]).sort((a,b) => a.d < b.d ? -1 : 1);
+    saveProfile(); $('#p-bw').value = ''; render(); toast(t('t_saved')); return;
+  }
+});
+// Pinnwand sortieren: Karte ziehen (Maus/Touch) oder Pfeiltasten
+document.addEventListener('pointerdown', ev => {
+  if (!S.boardEdit || ev.button > 0) return;
+  const card = ev.target.closest('.mc.edit'); if (!card || ev.target.closest('button')) return;
+  drag = {el: card, grid: card.parentElement, id: ev.pointerId};
+  try { card.setPointerCapture(ev.pointerId); } catch(e) {}
+  card.classList.add('dragging');
+});
+document.addEventListener('pointermove', ev => {
+  if (!drag || ev.pointerId !== drag.id) return;
+  ev.preventDefault();
+  if (ev.clientY < 70) window.scrollBy(0, -10); else if (ev.clientY > innerHeight - 110) window.scrollBy(0, 10);
+  const under = document.elementFromPoint(ev.clientX, ev.clientY), tgt = under && under.closest('.mc.edit');
+  if (!tgt || tgt === drag.el || tgt.parentElement !== drag.grid) return;
+  const items = [...drag.grid.querySelectorAll('.mc.edit')], a = items.indexOf(drag.el), b = items.indexOf(tgt);
+  drag.grid.insertBefore(drag.el, a < b ? tgt.nextSibling : tgt);
+}, {passive:false});
+const endDrag = ev => {
+  if (!drag || ev.pointerId !== drag.id) return;
+  drag.el.classList.remove('dragging');
+  const keys = [...drag.grid.querySelectorAll('[data-bkey]')].map(e => e.dataset.bkey), changed = keys.join() !== BOARD.shown.join();
+  drag = null;
+  if (changed){ saveBoard(keys); BOARD.shown = keys; }
+  if (renderPending || changed){ renderPending = false; render(); }
+};
+document.addEventListener('pointerup', endDrag); document.addEventListener('pointercancel', endDrag);
+document.addEventListener('keydown', ev => {
+  if (ev.key === 'Escape' && S.sheet){ S.sheet = null; render(); return; }
+  const card = ev.target.closest && ev.target.closest('.mc.edit'); if (!card) return;
+  const dir = {ArrowLeft:-1, ArrowUp:-1, ArrowRight:1, ArrowDown:1}[ev.key]; if (!dir) return;
+  ev.preventDefault();
+  const k = card.dataset.bkey, a = BOARD.shown.slice(), i = a.indexOf(k), j = i + dir; if (j < 0 || j >= a.length) return;
+  [a[i], a[j]] = [a[j], a[i]]; saveBoard(a); render();
+  const n = document.querySelector(`[data-bkey="${k}"]`); if (n) n.focus();
+});
+init();
+</script>

@@ -1,0 +1,45 @@
+# Liftfolio – iOS-Build ohne eigenen Mac
+# Startet nur manuell (in Codemagic auf "Start new build" klicken).
+# Benötigt die Variablengruppe "appstore_credentials" (siehe ANLEITUNG.md, Schritt 5):
+#   APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_KEY_IDENTIFIER, APP_STORE_CONNECT_PRIVATE_KEY,
+#   CERTIFICATE_PRIVATE_KEY, APP_STORE_APPLE_ID
+workflows:
+  ios-testflight:
+    name: iOS → TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      groups:
+        - appstore_credentials
+      vars:
+        BUNDLE_ID: app.liftfolio.ios
+        XCODE_PROJECT: ios/App/App.xcodeproj
+        XCODE_SCHEME: App
+      node: 22
+      xcode: latest
+    scripts:
+      - name: Abhängigkeiten installieren
+        script: npm ci
+      - name: Web-App bauen und ins iOS-Projekt kopieren
+        script: |
+          npm run build
+          npx cap sync ios
+      - name: Signierung (Zertifikat und Profil werden bei Bedarf automatisch erstellt)
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: Build-Nummer erhöhen
+        script: |
+          LATEST=$(app-store-connect get-latest-build-number "$APP_STORE_APPLE_ID" 2>/dev/null | tail -1 | tr -dc '0-9')
+          NEXT=$(( ${LATEST:-0} + 1 ))
+          echo "Build-Nummer: $NEXT"
+          perl -pi -e "s/CURRENT_PROJECT_VERSION = \d+;/CURRENT_PROJECT_VERSION = $NEXT;/g" "$XCODE_PROJECT/project.pbxproj"
+      - name: App bauen (IPA)
+        script: xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
+      - name: Zu App Store Connect hochladen (erscheint danach in TestFlight)
+        script: app-store-connect publish --path build/ios/ipa/*.ipa
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
